@@ -51,8 +51,6 @@ DECLARE_OPTION(eOptionString, op_last_file);
 
 const char* OpLastFolder() { return op_last_file.Folder(); }
 
-#if defined(USE_UI) || defined(USE_OPTIONS_COMMON)
-
 struct eOptionState : public xOptions::eOptionB
 {
 	eOptionState() { storeable = false; }
@@ -170,15 +168,6 @@ static struct eOptionPause : public xOptions::eRootOption<xOptions::eOptionBool>
 	}
 	virtual int Order() const { return 70; }
 } op_pause;
-
-#else//USE_UI || USE_OPTIONS_COMMON
-
-DECLARE_OPTION_VOID(eOptionB, op_save_state);
-DECLARE_OPTION_VOID(eOptionB, op_load_state);
-DECLARE_OPTION_VOID(eOptionInt, op_sound_source);
-DECLARE_OPTION_VOID(eOptionInt, op_volume);
-
-#endif//USE_UI || USE_OPTIONS_COMMON
 
 static struct eOptionDrive : public xOptions::eOptionInt
 {
