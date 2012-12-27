@@ -29,8 +29,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace xPlatform
 {
 
-OPTION_USING(eOptionBool, op_fast_tape);
+OPTION_USING(eOptionBool, op_tape_fast);
 OPTION_USING(eOptionInt, op_skip_frame);
+OPTION_USING(eOptionB, op_save_state);
+OPTION_USING(eOptionB, op_load_state);
 
 //=============================================================================
 //	eWindow::eWindow
@@ -180,7 +182,7 @@ eWindow::eWindow(QWidget* parent) : QMainWindow(parent)
 	case S_TAPE:		asnd_tape->setChecked(true);		break;
 	default: break;
 	}
-	xOptions::eOptionBool* ft = OPTION_GET(op_fast_tape);
+    xOptions::eOptionBool* ft = OPTION_GET(op_tape_fast);
 	atape_fast->setChecked(ft && *ft);
 #ifdef Q_WS_S60
 	xOptions::eOptionInt* sf = OPTION_GET(op_skip_frames);
@@ -287,7 +289,7 @@ void eWindow::OnTapeToggle()
 //-----------------------------------------------------------------------------
 void eWindow::OnTapeFast()
 {
-	SAFE_CALL(OPTION_GET(op_fast_tape))->Change();
+    SAFE_CALL(OPTION_GET(op_tape_fast))->Change();
 }
 #ifdef Q_WS_S60
 //=============================================================================
