@@ -144,6 +144,4 @@ void eMainDialog::OnNotify(byte n, byte from)
 //namespace xUi
 
 DECLARE_OPTION_EX(eOptionB, &xUi::op_open_file, op_open_file);
-#else
-DECLARE_OPTION_VOID(eOptionB, op_open_file);
 #endif//USE_UI

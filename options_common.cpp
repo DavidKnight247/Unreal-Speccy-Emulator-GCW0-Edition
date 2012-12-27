@@ -21,6 +21,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "ui/ui.h"
 #include "options_common.h"
 
+#ifndef USE_UI
+DECLARE_OPTION_VOID(eOptionB, op_open_file);
+#endif//USE_UI
+
 OPTION_USING(eOptionB, op_open_file);
 OPTION_USING(eOptionB, op_ay);
 
