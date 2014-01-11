@@ -50,6 +50,7 @@ public:
 
 	static eDeviceId Id() { return D_ULA; }
 	virtual dword IoNeed() const { return ION_WRITE|ION_READ; }
+	virtual const char* Name() const { return "ula"; }
 protected:
 	void	CreateTables();
 	void	CreateTimings();

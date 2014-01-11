@@ -34,6 +34,7 @@ public:
 
 	static eDeviceId Id() { return D_KEMPSTON_JOY; }
 	virtual dword IoNeed() const { return ION_READ; }
+	virtual const char* Name() const { return "kempston joy"; }
 protected:
 	void KeyState(char key, bool down);
 	byte state;

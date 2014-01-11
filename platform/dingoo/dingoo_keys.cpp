@@ -89,7 +89,7 @@ void eKeys::Update()
 			if(!audio_next)
 			{
 				audio_next = true;
-				OPTION_GET(op_sound_source)->Change(true);
+				((xOptions::eOptionB*)OPTION_GET(op_sound_source))->Change();
 			}
 			return;
 		}

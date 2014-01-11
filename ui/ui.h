@@ -20,6 +20,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define __UI_H__
 
 #include "../std_types.h"
+#include "../tools/point.h"
 
 #pragma once
 
@@ -27,21 +28,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define USE_UI
 #endif//USE_SDL
 
-//#define USE_UI
+#define USE_UI
 
 #ifdef USE_UI
 
 namespace xUi
 {
-
-struct ePoint
-{
-	ePoint() : x(0), y(0) {}
-	ePoint(int _x, int _y) : x(_x), y(_y) {}
-	ePoint& operator+=(const ePoint& p) { x += p.x; y += p.y; return self; }
-	ePoint operator+(const ePoint& p) { ePoint t = self; t += p; return t; }
-	int x, y;
-};
 
 struct eRect
 {

@@ -44,7 +44,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "rzx.h"
 
 #ifdef USE_ZIP
-#include "../tools/zlib/zlib.h"
+#include <zlib.h>
 #endif
 
 class eRZX::eImpl
@@ -326,7 +326,7 @@ void eRZX::eImpl::Close()
 #endif//USE_ZIP
 	SAFE_DELETE(file);
 	status = RZX_INIT;
-	SAFE_DELETE(inputbuffer);
+	SAFE_DELETE_ARRAY(inputbuffer);
 }
 
 

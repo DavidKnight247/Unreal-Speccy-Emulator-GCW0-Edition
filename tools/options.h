@@ -31,7 +31,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #define OPTION_USING(cls, id) extern xOptions::cls* _opt_##id
 #define OPTION_GET(id) _opt_##id
 
-class TiXmlElement;
+namespace tinyxml2
+{
+class XMLDocument;
+class XMLElement;
+}
 
 namespace xOptions
 {
@@ -42,7 +46,7 @@ class eRootOptionB : public eList<eRootOptionB>
 {
 public:
 	virtual int Order() const { return 0; }
-	virtual eOptionB* OptionB() = 0;
+	virtual eOptionB* OptionB() { return NULL; }
 protected:
 	eRootOptionB() {}
 };
@@ -55,28 +59,26 @@ template<class T> struct eRootOption : public eRootOptionB, public T
 class eOptionB
 {
 public:
-	eOptionB() : next(NULL), sub_options(NULL), customizable(true), storeable(true), changed(false) {}
+	eOptionB();
 	virtual ~eOptionB() {}
 
-	eOptionB* Next() { return next; }
-	eOptionB* SubOptions() { return sub_options; }
+	eOptionB* Next() const { return next; }
+	eOptionB* SubOptions() const { return sub_options; }
 
 	bool Customizable() const { return customizable; }
-	bool Storeable() const { return storeable; }
-	bool Changed() const { return changed; }
 
 	virtual const char* Name() const = 0;
 	virtual const char*	Value() const { return NULL; }
-	virtual void Value(const char* v) {}
-	virtual void Change(bool next = true) { changed = true; }
-	bool Option(eOptionB& o);
-	bool Option(eOptionB* o) { return o ? Option(*o) : false; }
-	void Apply();
+	virtual void Value(const char* v) { Changing(); }
+	virtual void Change(bool next = true) { Changing(); }
+	virtual bool Apply(tinyxml2::XMLElement* owner = NULL);
 	eOptionB* Find(const char* name) const;
-	void Load(TiXmlElement* owner);
-	void Store(TiXmlElement* owner);
+	void Store(tinyxml2::XMLElement* owner, tinyxml2::XMLDocument* doc);
 protected:
 	virtual const char** Values() const { return NULL; }
+	void Changing();
+	bool Option(eOptionB& o);
+	bool Option(eOptionB* o) { return o ? Option(*o) : false; }
 	virtual void OnOption() {}
 protected:
 	eOptionB* next;
@@ -84,20 +86,22 @@ protected:
 	bool customizable;
 	bool storeable;
 	bool changed;
+	tinyxml2::XMLElement* loading_node;
+	static bool loading;
+	static bool applied;
 };
 
 template<class T> class eOption : public eOptionB
 {
 public:
 	operator const T&() const { return value; }
-	virtual void Set(const T& v) { value = v; changed = true; }
+	virtual void Set(const T& v) { value = v; Changing(); }
 protected:
-	T	value;
+	T value;
 };
 
 class eOptionInt : public eOption<int>
 {
-	typedef eOption<int> eInherited;
 public:
 	eOptionInt() { Set(0); }
 	virtual const char*	Value() const;
@@ -107,12 +111,11 @@ public:
 
 class eOptionBool : public eOption<bool>
 {
-	typedef eOption<bool> eInherited;
 public:
 	eOptionBool() { Set(false); }
 	virtual const char*	Value() const;
 	virtual void Value(const char* v);
-	virtual void Change(bool next = true) { Set(!value); eInherited::Change(); }
+	virtual void Change(bool next = true) { Set(!value); }
 protected:
 	virtual const char** Values() const;
 };
@@ -120,7 +123,7 @@ protected:
 struct eOptionString : public eOption<const char*>
 {
 	typedef eOption<const char*> eInherited;
-	eOptionString() : alloc_size(32) { value = new char[alloc_size]; Value(""); }
+	eOptionString() : alloc_size(32) { storeable = false; value = new char[alloc_size]; Value(""); }
 	virtual ~eOptionString() { SAFE_DELETE_ARRAY(value); }
 	virtual const char*	Value() const { return value; }
 	virtual void Value(const char* v) { Set(v); }
@@ -128,13 +131,12 @@ struct eOptionString : public eOption<const char*>
 	int alloc_size;
 };
 
-eOptionB* Find(const char* name);
-template<class T> T* Find(const char* name) { return static_cast<T*>(Find(name)); }
-void Apply();
-
-extern bool loading;
 void Init();
 void Done();
+void Apply();
+
+eOptionB* Find(const char* name);
+template<class T> T* Find(const char* name) { return static_cast<T*>(Find(name)); }
 
 }
 //namespace xOptions

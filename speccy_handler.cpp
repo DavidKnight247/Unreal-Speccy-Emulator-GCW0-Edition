@@ -89,6 +89,7 @@ static struct eSpeccyHandler : public eHandler, public eRZX::eHandler, public xZ
 	virtual dword AudioDataReady(int source) { return sound_dev[source]->AudioDataReady(); }
 	virtual void AudioDataUse(int source, dword size) { sound_dev[source]->AudioDataUse(size); }
 	virtual void VideoPaused(bool paused) {	paused ? ++video_paused : --video_paused; }
+	virtual void VideoFrameRate(int v) { for(int i = 0; i < SOUND_DEV_COUNT; ++i) sound_dev[i]->FrameRate(v); }
 
 	virtual bool FullSpeed() const { return speccy->CPU()->HandlerStep() != NULL; }
 
@@ -150,6 +151,7 @@ void eSpeccyHandler::OnInit()
 	xOptions::Init();
 	if(op_48k)
 		speccy->Reset();
+	OnAction(A_RESET);
 }
 void eSpeccyHandler::OnDone()
 {
@@ -195,6 +197,7 @@ const char* eSpeccyHandler::OnLoop()
 #ifdef USE_UI
 	ui_desktop->Update();
 #endif//USE_UI
+	xOptions::Apply();
 	return error;
 }
 const char* eSpeccyHandler::RZXErrorDesc(eRZX::eError err) const
@@ -326,6 +329,12 @@ static struct eOptionAutoPlayImage : public xOptions::eOptionBool
 } op_auto_play_image;
 DECLARE_OPTION(eOptionBool, op_auto_play_image);
 
+static struct eOptionResetToServiceRom : public xOptions::eRootOption<xOptions::eOptionBool>
+{
+	virtual const char* Name() const { return "reset to service rom"; }
+	virtual int Order() const { return 79; }
+} op_reset_to_service_rom;
+
 eActionResult eSpeccyHandler::OnAction(eAction action)
 {
 	switch(action)
@@ -336,6 +345,8 @@ eActionResult eSpeccyHandler::OnAction(eAction action)
 		SAFE_DELETE(macro);
 		speccy->Mode48k(op_48k);
 		speccy->Reset();
+		if(!speccy->Mode48k())
+			speccy->Device<eRom>()->SelectPage(op_reset_to_service_rom ? eRom::ROM_SYS : eRom::ROM_128_1);
 		if(inside_replay_update)
 			speccy->CPU()->HandlerIo(this);
 		return AR_OK;
@@ -396,6 +407,10 @@ static struct eFileTypeZ80 : public eFileType
 	}
 	virtual const char* Type() { return "z80"; }
 } ft_z80;
+static struct eFileTypeSZX : public eFileTypeZ80
+{
+	virtual const char* Type() { return "szx"; }
+} ft_szx;
 static struct eFileTypeSNA : public eFileTypeZ80
 {
 	virtual bool Store(const char* name)
@@ -438,9 +453,12 @@ static struct eFileTypeTRD : public eFileType
 		{
 			sh.OnAction(A_RESET);
 			if(wd->BootExist(*OPTION_GET(op_drive)))
-				sh.speccy->Memory()->SetPage(0, eMemory::P_ROM3); // tr-dos rom
+				sh.speccy->Device<eRom>()->SelectPage(eRom::ROM_DOS);
 			else if(!sh.speccy->Mode48k())
+			{
+				sh.speccy->Device<eRom>()->SelectPage(eRom::ROM_SYS);
 				sh.PlayMacro(new eMacroDiskRun);
+			}
 		}
 		return ok;
 	}
@@ -461,10 +479,6 @@ class eMacroTapeLoad : public eMacro
 	{
 		switch(frame)
 		{
-		case 0:
-			sh.speccy->Reset();
-			sh.speccy->Memory()->SetPage(0, eMemory::P_ROM1); // 48-basic rom
-			break;
 		case 100:
 			sh.OnKey('J', KF_DOWN|KF_UI_SENDER);
 			break;
@@ -500,6 +514,8 @@ static struct eFileTypeTAP : public eFileType
 		bool ok = sh.speccy->Device<eTape>()->Open(Type(), data, data_size);
 		if(ok && op_auto_play_image)
 		{
+			sh.OnAction(A_RESET);
+			sh.speccy->Devices().Get<eRom>()->SelectPage(sh.speccy->Devices().Get<eRom>()->ROM_SOS());
 			sh.PlayMacro(new eMacroTapeLoad);
 		}
 		return ok;

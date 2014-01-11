@@ -33,6 +33,7 @@ public:
 	virtual void IoWrite(word port, byte v, int tact);
 	static eDeviceId Id() { return D_BEEPER; }
 	virtual dword IoNeed() const { return ION_WRITE; }
+	virtual const char* Name() const { return "beeper"; }
 };
 
 #endif//__BEEPER_H__

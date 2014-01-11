@@ -26,6 +26,11 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 namespace xPlatform
 {
 
+void VideoUpdate();
+void VideoFlip();
+void UpdateAudio();
+void UpdateKeys();
+
 bool Init(const char* path)
 {
 	const char* lf = "A:\\GAME\\";
@@ -43,21 +48,15 @@ void Done()
 {
 	Handler()->OnDone();
 }
-
-void UpdateVideo();
-void FlipVideo();
-void UpdateAudio();
-void UpdateKeys();
-
 void Loop()
 {
 	while(!*OPTION_GET(op_quit) && _sys_judge_event(NULL) >= 0)
 	{
 		UpdateAudio(); //sync by audio
-		FlipVideo();
+		VideoFlip();
 		UpdateKeys();
 		Handler()->OnLoop();
-		UpdateVideo();
+		VideoUpdate();
 	}
 }
 

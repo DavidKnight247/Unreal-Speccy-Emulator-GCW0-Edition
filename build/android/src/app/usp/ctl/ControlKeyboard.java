@@ -34,7 +34,8 @@ import app.usp.ViewGLES;
 
 public class ControlKeyboard
 {
-	private final int width, height;
+	private int width;
+	private int height;
 	private final float scale_x, scale_y;
 	private boolean active = false;
 	private long touch_time = 0;
@@ -57,6 +58,7 @@ public class ControlKeyboard
 
 	public ControlKeyboard(Context context)
 	{
+		//@note : width & height may vary at runtime a little ;-) 
 		if(context.getResources().getConfiguration().orientation == Configuration.ORIENTATION_LANDSCAPE)
 		{
 			width = context.getResources().getDisplayMetrics().widthPixels;
@@ -69,8 +71,12 @@ public class ControlKeyboard
 		}
 		BitmapFactory.Options options = new BitmapFactory.Options();
 		options.inScaled = false;
-		Bitmap bm = BitmapFactory.decodeResource(context.getResources(), R.drawable.keyboard, options);
-        bm.setDensity(Bitmap.DENSITY_NONE);
+		Bitmap bm = null;
+		if(width > 480)
+			bm = BitmapFactory.decodeResource(context.getResources(), R.drawable.keyboard_hq, options);
+		else
+			bm = BitmapFactory.decodeResource(context.getResources(), R.drawable.keyboard, options);
+		bm.setDensity(Bitmap.DENSITY_NONE);
 		final int w = bm.getWidth();
 		final int h = bm.getHeight();
 		final int width_pot = NextPot(w);
@@ -78,7 +84,7 @@ public class ControlKeyboard
 		scale_x = ((float)w)/width_pot;
 		scale_y = ((float)h)/height_pot;
 		
-        keyboard = Bitmap.createBitmap(width_pot, height_pot, Bitmap.Config.ARGB_8888);
+        keyboard = Bitmap.createBitmap(width_pot, height_pot, Bitmap.Config.RGB_565);
 	    Paint paint = new Paint();
 	    paint.setAntiAlias(true);
 		Canvas canvas = new Canvas(keyboard);
@@ -109,10 +115,12 @@ public class ControlKeyboard
 		}
 		Emulator.the.OnTouch(true, x/width, y/height, down, pointer_id);
 	}
-	public void Draw(GL10 gl, ViewGLES.Quad quad)
+	public void Draw(GL10 gl, ViewGLES.Quad quad, int _w, int _h)
 	{
 		if(!active)
 			return;
+		width = _w;
+		height = _h;
 		final long passed_time = SystemClock.uptimeMillis() - touch_time;
 		if(passed_time > HIDE_TIME_MS)
 		{
@@ -122,7 +130,7 @@ public class ControlKeyboard
 		final float alpha = passed_time > (HIDE_TIME_MS - 1000) ? (float)(HIDE_TIME_MS - passed_time)/1000.0f : 1.0f;
 
 		// draw keyboard
-		gl.glColor4f(1.0f, 1.0f, 1.0f, 0.8f*alpha);
+		gl.glColor4f(1.0f, 1.0f, 1.0f, 0.5f*alpha);
 	    gl.glViewport(0, 0, width, height);
 		gl.glMatrixMode(GL10.GL_TEXTURE);
 	    gl.glLoadIdentity();
@@ -130,8 +138,8 @@ public class ControlKeyboard
 	    gl.glMatrixMode(GL10.GL_MODELVIEW);
 		gl.glLoadIdentity();
 	    gl.glBindTexture(GL10.GL_TEXTURE_2D, textures[0]);
-		gl.glTexParameterf(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_MIN_FILTER, GL10.GL_NEAREST);
-		gl.glTexParameterf(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_MAG_FILTER, GL10.GL_NEAREST);
+		gl.glTexParameterf(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_MIN_FILTER, GL10.GL_LINEAR);
+		gl.glTexParameterf(GL10.GL_TEXTURE_2D, GL10.GL_TEXTURE_MAG_FILTER, GL10.GL_LINEAR);
 		gl.glEnable(GL10.GL_BLEND);
 		gl.glBlendFunc(GL10.GL_SRC_ALPHA, GL10.GL_ONE_MINUS_SRC_ALPHA);
 		quad.Draw(gl);

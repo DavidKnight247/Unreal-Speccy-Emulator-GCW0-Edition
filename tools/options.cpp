@@ -20,14 +20,12 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../platform/platform.h"
 
 #ifdef USE_CONFIG
+#include <tinyxml2.h>
 #include "../platform/io.h"
-#include "tinyxml/tinyxml.h"
 #endif//USE_CONFIG
 
 namespace xOptions
 {
-
-bool loading = false;
 
 static char buf[256];
 static const char* OptNameToXmlName(const char* name)
@@ -51,11 +49,34 @@ static const char* XmlNameToOptName(const char* name)
 	return buf;
 }
 
-void eOptionB::Apply()
+bool eOptionB::loading = false;
+bool eOptionB::applied = true;
+
+using namespace tinyxml2;
+
+eOptionB::eOptionB() : next(NULL), sub_options(NULL), customizable(true), storeable(true)
+	, changed(false), loading_node(NULL)
 {
+}
+void eOptionB::Changing()
+{
+	changed = true;
+	applied = false;
+}
+bool eOptionB::Apply(XMLElement* owner)
+{
+	loading_node = owner;
+	if(loading && loading_node)
+	{
+		const char* v = loading_node->GetText();
+		Value(v ? v : "");
+	}
 	sub_options = NULL;
 	OnOption();
+	loading_node = NULL;
+	bool res = changed;
 	changed = false;
+	return res;
 }
 bool eOptionB::Option(eOptionB& o)
 {
@@ -69,10 +90,13 @@ bool eOptionB::Option(eOptionB& o)
 	else
 		sub_options = &o;
 	o.next = NULL;
-	bool res = o.Changed();
-	if(!loading)
-		o.Apply();
-	return res;
+	XMLElement* xe = NULL;
+	if(loading && loading_node)
+	{
+		const char* id = OptNameToXmlName(o.Name());
+		xe = loading_node->FirstChildElement(id);
+	}
+	return o.Apply(xe);
 }
 eOptionB* eOptionB::Find(const char* name) const
 {
@@ -85,33 +109,19 @@ eOptionB* eOptionB::Find(const char* name) const
 	}
 	return NULL;
 }
-void eOptionB::Load(TiXmlElement* owner)
-{
-	const char* v = owner->GetText();
-	Value(v ? v : "");
-	Apply();
-	for(TiXmlElement* xe = owner->FirstChildElement(); xe; xe = xe->NextSiblingElement())
-	{
-		const char* id = xe->Value();
-		eOptionB* o = Find(XmlNameToOptName(id));
-		SAFE_CALL(o)->Load(xe);
-	}
-}
-void eOptionB::Store(TiXmlElement* owner)
+void eOptionB::Store(XMLElement* owner, XMLDocument* doc)
 {
 	if(!(storeable && Value()) && !sub_options)
 		return;
-	TiXmlElement* xe = new TiXmlElement(OptNameToXmlName(Name()));
+	XMLElement* xe = doc->NewElement(OptNameToXmlName(Name()));
 	owner->LinkEndChild(xe);
 	if(storeable && Value())
 	{
-		xe->LinkEndChild(new TiXmlText(Value()));
+		xe->LinkEndChild(doc->NewText(Value()));
 	}
 	for(eOptionB* o = sub_options; o; o = o->Next())
 	{
-		if(!o->Storeable())
-			continue;
-		o->Store(xe);
+		o->Store(xe, doc);
 	}
 }
 
@@ -159,18 +169,9 @@ struct eOA : public eRootOptionB // access to protected members hack
 void eOptionInt::Change(int last, bool next)
 {
 	if(next)
-	{
-		Set(self + 1);
-		if(self >= last)
-			Set(0);
-	}
+		Set(value < last - 1 ? value + 1 : 0);
 	else
-	{
-		Set(self - 1);
-		if(self < 0)
-			Set(last - 1);
-	}
-	eInherited::Change(next);
+		Set(value > 0 ? value - 1 : last - 1);
 }
 const char*	eOptionInt::Value() const
 {
@@ -205,7 +206,6 @@ const char*	eOptionBool::Value() const
 }
 void eOptionBool::Value(const char* v)
 {
-	return;
 	const char** vals = Values();
 	if(!vals)
 		return;
@@ -230,68 +230,65 @@ void eOptionString::Set(const char*& v)
 		alloc_size = s;
 	}
 	strcpy(const_cast<char*>(value), v);
+	storeable = s > 1;
 	eInherited::Set(value);
 }
 
-eOptionB* Find(const char* name)
+static class eRoot : public eOptionB
 {
-	const char* sub_name = strchr(name, '/');
-	int size = sub_name ? sub_name - name : strlen(name);
-	for(eRootOptionB* r = eRootOptionB::First(); r; r = r->Next())
+	typedef eOptionB eInherited;
+public:
+	eRoot() { customizable = false; }
+	virtual const char* Name() const { return "options"; }
+	void Apply()
 	{
-		eOptionB* o = r->OptionB();
-		if(!strncmp(name, o->Name(), size))
-			return sub_name ? o->Find(sub_name + 1) : o;
+		if(applied)
+			return;
+		eInherited::Apply(NULL);
+		applied = true;
 	}
-	return NULL;
-}
-void Apply()
-{
-	for(eRootOptionB* r = eRootOptionB::First(); r; r = r->Next())
+	void Load(XMLElement* owner)
 	{
-		r->OptionB()->Apply();
+		loading = true;
+		eInherited::Apply(owner);
+		loading = false;
 	}
-}
+protected:
+	virtual void OnOption()
+	{
+		for(eRootOptionB* r = eRootOptionB::First(); r; r = r->Next())
+		{
+			Option(r->OptionB());
+		}
+	}
+} root;
+
+eOptionB* Find(const char* name) { return root.Find(name); }
+void Apply() { root.Apply(); }
 
 #ifdef USE_CONFIG
 static const char* FileName() { return xIo::ProfilePath("unreal_speccy_portable.xml"); }
 void Init()
 {
 	eOA::SortByOrder();
-	Apply();
-	TiXmlDocument doc;
-	if(!doc.LoadFile(FileName()))
-		return;
-	TiXmlElement* root = doc.RootElement();
-	if(!root)
-		return;
-	TiXmlElement* owner = root->FirstChildElement("Options");
-	if(!owner)
-		return;
-	loading = true;
-	for(TiXmlElement* xe = owner->FirstChildElement(); xe; xe = xe->NextSiblingElement())
+	XMLDocument doc(true, COLLAPSE_WHITESPACE);
+	if(doc.LoadFile(FileName()) == XML_SUCCESS)
 	{
-		const char* id = xe->Value();
-		eOptionB* o = Find(XmlNameToOptName(id));
-		if(!o)
-			continue;
-		o->Load(xe);
+		XMLElement* xe = doc.RootElement();
+		if(xe)
+		{
+			root.Load(xe->FirstChildElement());
+		}
 	}
-	loading = false;
 }
 void Done()
 {
-	TiXmlDocument doc;
-	TiXmlDeclaration* decl = new TiXmlDeclaration("1.0", "UTF-8", "");
+	XMLDocument doc(true, COLLAPSE_WHITESPACE);
+	XMLDeclaration* decl = doc.NewDeclaration();
 	doc.LinkEndChild(decl);
-	TiXmlElement* root = new TiXmlElement("UnrealSpeccyPortable");
-	doc.LinkEndChild(root);
-	TiXmlElement* owner = new TiXmlElement("Options");
-	root->LinkEndChild(owner);
-	for(eRootOptionB* r = eRootOptionB::First(); r; r = r->Next())
-	{
-		r->OptionB()->Store(owner);
-	}
+	XMLElement* xe = doc.NewElement("UnrealSpeccyPortable");
+	doc.LinkEndChild(xe);
+	root.Store(xe, &doc);
 	doc.SaveFile(FileName());
 }
 

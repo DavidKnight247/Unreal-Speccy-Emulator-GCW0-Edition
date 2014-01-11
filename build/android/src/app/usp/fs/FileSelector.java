@@ -22,10 +22,10 @@ import java.io.File;
 import java.util.ArrayList;
 import java.util.List;
 
-
 import android.app.ListActivity;
 import android.app.ProgressDialog;
 import android.content.Context;
+import android.content.DialogInterface;
 import android.widget.BaseAdapter;
 import android.widget.ListView;
 import android.widget.TextView;
@@ -47,7 +47,7 @@ public abstract class FileSelector extends ListActivity
 	}
 	abstract State State();
 	List<FileSelectorSource.Item> Items() { return State().items; }
-	abstract boolean LongUpdate();
+	abstract boolean LongUpdate(final File path);
 
 	private boolean async_task = false;
 
@@ -79,7 +79,7 @@ public abstract class FileSelector extends ListActivity
 		}
 		else
 		{
-			new UpdateAsync(this, State().last_name).execute();
+			new UpdateAsync(this, State().current_path, State().last_name).execute();
 		}
 	}
 	private void SetItems()
@@ -116,17 +116,14 @@ public abstract class FileSelector extends ListActivity
 			File parent = State().current_path.getParentFile();
 			if(parent != null)
 			{
-				String name = "/" + State().current_path.getName();
-				State().current_path = parent;
-				new UpdateAsync(this, name).execute();
+				new UpdateAsync(this, parent, "/" + State().current_path.getName()).execute();
 			}
 		}
 		else
 		{
 			if(f.startsWith("/"))
 			{
-				State().current_path = new File(State().current_path.getPath() + f);
-				new UpdateAsync(this, "").execute();
+				new UpdateAsync(this, new File(State().current_path.getPath() + f), "").execute();
 			}
 			else
 			{
@@ -135,38 +132,123 @@ public abstract class FileSelector extends ListActivity
 			}
 		}
 	}
+	
+	static abstract class FSSProgressDialog implements FileSelectorProgress, DialogInterface.OnCancelListener
+	{
+		FSSProgressDialog(Context _owner, final int _res_title, final int _res_message)
+		{
+			owner = _owner;
+			res_title = _res_title;
+			res_message = _res_message;
+		}
+		void Create()
+		{
+			pd = CreateProgress();
+			pd.show();
+			time_last = System.nanoTime();
+		}
+		void Destroy()
+		{
+			if(pd != null)
+				pd.dismiss();
+		}
+		void Update(final int value, final int value_max)
+		{
+			if(pd == null)
+				return;
+			if(Canceled())
+				return;
+			final long time = System.nanoTime();
+			if(time - time_last < 0.5*1e9) // update each 0.5 sec
+				return;
+			time_last = time;
+			if(pd.isIndeterminate() && (value - value_last)*3 < value_max)
+			{
+				pd.dismiss();
+				pd = CreateProgress();
+				pd.setIndeterminate(false);
+				pd.setProgressStyle(ProgressDialog.STYLE_HORIZONTAL);
+				pd.show();
+			}
+			if(!pd.isIndeterminate())
+			{
+				pd.setMax(value_max);
+				pd.setProgress(value);
+			}
+			value_last = value;
+		}
+		private ProgressDialog CreateProgress()
+		{
+			ProgressDialog pd = new ProgressDialog(owner);
+			pd.setTitle(owner.getString(res_title));
+			pd.setMessage(owner.getString(res_message));
+			pd.setOnCancelListener(this);
+			pd.setCancelable(true);
+			pd.setCanceledOnTouchOutside(false);
+			return pd;
+		}
+		@Override
+		public boolean Canceled() { return canceled; }
+		@Override
+		public void onCancel(DialogInterface di)
+		{
+			canceled = true;
+			pd.dismiss();
+			pd = new ProgressDialog(owner);
+			pd.setTitle(owner.getString(res_title));
+			pd.setMessage(owner.getString(R.string.canceling));
+			pd.setCancelable(false);
+			pd.show();
+		}
+		private Context owner;
+		private final int res_title;
+		private final int res_message;
+		private ProgressDialog pd = null;
+		private long time_last = 0;
+		int value_last = 0;
+		boolean canceled = false;
+	}
 
-	private class ApplyAsync extends AsyncTask<Void, Void, FileSelectorSource.ApplyResult>
+	private class ApplyAsync extends AsyncTask<Void, Integer, FileSelectorSource.ApplyResult>
 	{
 		private FileSelector owner;
 		FileSelectorSource.Item item;
-		ProgressDialog progress_dialog = null;
+		private FSSProgressDialog progress;
 		ApplyAsync(FileSelector _owner, FileSelectorSource.Item _item)
 		{
 			owner = _owner;
 			item = _item;
+			progress = new FSSProgressDialog(owner, R.string.accessing_web, R.string.downloading_image)
+			{
+				@Override
+				public void OnProgress(Integer current, Integer max) { publishProgress(current, max); }
+			};
 		}
 		@Override
 		protected void onPreExecute()
 		{
 			async_task = true;
-			if(LongUpdate())
-				progress_dialog = ProgressDialog.show(owner, getString(R.string.accessing_web), getString(R.string.downloading_image));
+			if(LongUpdate(State().current_path))
+				progress.Create();
 		}
 		@Override
 		protected FileSelectorSource.ApplyResult doInBackground(Void... args)
 		{
 			for(FileSelectorSource s : sources)
 			{
-				return s.ApplyItem(item);
+				return s.ApplyItem(item, progress);
 			}
 			return FileSelectorSource.ApplyResult.FAIL;
 		}
 		@Override
+		protected void onProgressUpdate(Integer... values)
+		{
+			progress.Update(values[0], values[1]);
+		}
+		@Override
 		protected void onPostExecute(FileSelectorSource.ApplyResult r)
 		{
-			if(progress_dialog != null)
-				progress_dialog.cancel();
+			progress.Destroy();
 			String e = null;
 			switch(r)
 			{
@@ -179,63 +261,79 @@ public abstract class FileSelector extends ListActivity
 			}
 			if(e != null)
 			{
-				String me = getString(R.string.file_select_open_error) + e;
+				String me = String.format(getString(R.string.file_select_open_error), e);
 				Toast.makeText(getApplicationContext(), me, Toast.LENGTH_LONG).show();
 			}
 			async_task = false;
-			finish();
+			if(r == FileSelectorSource.ApplyResult.OK)
+				finish();
 		}
 	}
 
-	private class UpdateAsync extends AsyncTask<Void, Void, FileSelectorSource.GetItemsResult>
+	private class UpdateAsync extends AsyncTask<Void, Integer, FileSelectorSource.GetItemsResult>
 	{
 		private FileSelector owner;
+		private final File path;
 		private String select_after_update;
-		ProgressDialog progress_dialog = null;
-		UpdateAsync(FileSelector _owner, final String _select_after_update)
+		private FSSProgressDialog progress;
+		private List<FileSelectorSource.Item> items = new ArrayList<FileSelectorSource.Item>();
+		UpdateAsync(FileSelector _owner, final File _path, final String _select_after_update)
 		{
 			owner = _owner;
+			path = _path;
 			select_after_update = _select_after_update;
+			progress = new FSSProgressDialog(owner, R.string.accessing_web, R.string.gathering_list)
+			{
+				@Override
+				public void OnProgress(Integer current, Integer max) { publishProgress(current, max); }
+			};
 		}
 		@Override
 		protected void onPreExecute()
 		{
 			async_task = true;
-			if(LongUpdate())
-				progress_dialog = ProgressDialog.show(owner, getString(R.string.accessing_web), getString(R.string.gathering_list));
+			if(LongUpdate(path))
+				progress.Create();
 		}
 		@Override
 		protected FileSelectorSource.GetItemsResult doInBackground(Void... args)
 		{
-			Items().clear();
 			for(FileSelectorSource s : sources)
 			{
-				FileSelectorSource.GetItemsResult r = s.GetItems(State().current_path, Items());
+				FileSelectorSource.GetItemsResult r = s.GetItems(path, items, progress);
 				if(r != FileSelectorSource.GetItemsResult.OK)
 					return r;
 			}
 			return FileSelectorSource.GetItemsResult.OK;
 		}
 		@Override
+		protected void onProgressUpdate(Integer... values)
+		{
+			progress.Update(values[0], values[1]);
+		}
+		@Override
 		protected void onPostExecute(FileSelectorSource.GetItemsResult r)
 		{
-			SetItems();
-			if(select_after_update.length() > 0)
-			{
-				SelectItem(select_after_update);
-			}
-			if(progress_dialog != null)
-				progress_dialog.cancel();
+			progress.Destroy();
 			String e = null;
 			switch(r)
 			{
 			case FAIL:					e = getString(R.string.file_select_failed);				break;
 			case UNABLE_CONNECT:		e = getString(R.string.file_select_unable_connect1);	break;
 			case INVALID_INFO:			e = getString(R.string.file_select_invalid_info);		break;
+			case OK:
+				State().current_path = path;
+				State().items = items;
+				SetItems();
+				if(select_after_update.length() > 0)
+				{
+					SelectItem(select_after_update);
+				}
+				break;
 			}
 			if(e != null)
 			{
-				String me = getString(R.string.file_select_update_error) + e;
+				String me = String.format(getString(R.string.file_select_update_error), e);
 				Toast.makeText(getApplicationContext(), me, Toast.LENGTH_LONG).show();
 			}
 			async_task = false;

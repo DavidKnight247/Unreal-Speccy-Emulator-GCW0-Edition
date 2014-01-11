@@ -2,6 +2,8 @@
 Portable ZX-Spectrum emulator.
 Copyright (C) 2001-2010 SMT, Dexus, Alone Coder, deathsoft, djdron, scor
 
+Perfect sync mode based on HV mode by Franck "hitchhikr" Charlet.
+
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
 the Free Software Foundation, either version 3 of the License, or
@@ -23,6 +25,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../../tools/options.h"
 #include "../../tools/profiler.h"
 #include "../../tools/type_registrator.h"
+#include "../../palette.h"
 
 #include <dingoo/jz4740.h>
 #include <dingoo/cache.h>
@@ -42,7 +45,7 @@ struct eRayMirror : public xOptions::eOptionInt
 	enum eState { S_FIRST, S_NONE = S_FIRST, S_H, S_V, S_HV, S_LAST };
 	bool H() const { return value&S_H; }
 	bool V() const { return value&S_V; }
-	virtual const char* Name() const { return "ray mirror"; }
+	virtual const char* Name() const { return "mirror"; }
 	virtual const char** Values() const
 	{
 		static const char* values[] = { "n", "h", "v", "hv", NULL };
@@ -54,25 +57,36 @@ struct eRayMirror : public xOptions::eOptionInt
 struct eRaySync : public xOptions::eOptionInt
 {
 	enum eState { S_FIRST, S_OFF = S_FIRST, S_RAW, S_PERFECT, S_LAST };
+	eRaySync() { changed = false; }
 	bool Perfect() const { return value == S_PERFECT; }
-	virtual const char* Name() const { return "ray sync"; }
+	virtual const char* Name() const { return "vsync"; }
 	virtual const char** Values() const
 	{
 		static const char* values[] = { "off", "raw", "perfect", NULL };
 		return values;
 	}
 	virtual void Change(bool next = true) { eOptionInt::Change(S_LAST, next); }
+	virtual void Set(const int& v) { if(v == value) return; xOptions::eOptionInt::Set(v); }
 };
 
 struct eFrameRate : public xOptions::eOptionInt
 {
-	eFrameRate() { Set(13); }
+	eFrameRate() { Set(13); memset(values, 0, sizeof(values)); }
+	int Current() const { return values[value]; }
 	virtual const char* Name() const { return "frame rate"; }
 	virtual void Change(bool next = true) { eOptionInt::Change(14, next); }
+protected:
+	int values[14];
 };
 
 struct eFrameRate9325 : public eFrameRate
 {
+	eFrameRate9325()
+	{
+		Set(4);
+		const int _values[] = { 40, 43, 45, 48, 51, 55, 59, 64, 70, 77, 85, 96, 110, 128 };
+		memcpy(values, _values, sizeof(values));
+	}
 	virtual const char** Values() const
 	{
 		static const char* values[] =
@@ -86,6 +100,12 @@ struct eFrameRate9325 : public eFrameRate
 
 struct eFrameRate9331 : public eFrameRate
 {
+	eFrameRate9331()
+	{
+		Set(8);
+		const int _values[] = { 30, 31, 33, 35, 38, 40, 43, 47, 51, 56, 62, 70, 80, 93 };
+		memcpy(values, _values, sizeof(values));
+	}
 	virtual const char** Values() const
 	{
 		static const char* values[] =
@@ -95,6 +115,25 @@ struct eFrameRate9331 : public eFrameRate
 		};
 		return values;
 	}
+};
+
+struct eFineTune : public xOptions::eOptionInt
+{
+	eFineTune() { Set(16); }
+	int Val() const { return value - 16; }
+	virtual const char* Name() const { return "fine tune"; }
+	virtual const char** Values() const
+	{
+		static const char* values[] =
+		{
+			"-16", "-15", "-14", "-13", "-12", "-11", "-10", "-9"
+			, "-8", "-7", "-6", "-5", "-4", "-3", "-2", "-1"
+			,"+0", "+1", "+2", "+3", "+4", "+5", "+6", "+7"
+			, "+8", "+9", "+10", "+11", "+12", "+13", "+14", "+15", NULL
+		};
+		return values;
+	}
+	virtual void Change(bool next = true) { eOptionInt::Change(32, next); }
 };
 
 struct eVBlank : public xOptions::eOptionInt
@@ -127,15 +166,10 @@ struct eVBlank9331 : public eVBlank
 class eLcd : public xOptions::eRootOption<xOptions::eOptionB>
 {
 public:
-	virtual ~eLcd() {}
-	virtual void Init() {}
-	void Done()
+	virtual ~eLcd()
 	{
-		if(ray_sync)
-		{
-			ray_sync.Set(eRaySync::S_OFF);
-			Update();
-		}
+		SAFE_DELETE(frame_rate);
+		SAFE_DELETE(vblank);
 	}
 	void Flip()
 	{
@@ -147,12 +181,25 @@ public:
 			Reset();
 		}
 	}
+	void Apply() //only after dma blitting
+	{
+		if(!updated)
+		{
+			updated = true;
+			Update();
+		}
+	}
 	const eRayMirror& RayMirror() const { return ray_mirror; }
 	const eRaySync& RaySync() const { return ray_sync; }
+	dword FrameRate() const //28.4
+	{
+		dword fr = frame_rate && ray_sync.Perfect() ? frame_rate->Current() : 50;
+		return (fr << 4) + fine_tune.Val() * 8;
+	}
 	virtual const char* Name() const { return "video"; }
 	virtual int Order() const { return 20; }
 protected:
-	eLcd() : frame_counter(0) {}
+	eLcd() : frame_counter(0), frame_rate(NULL), vblank(NULL), updated(true) {}
 	void Set(word reg, int v1 = -1, int v2 = -1, int v3 = -1, int v4 = -1)
 	{
 		enum { PIN_RS_N = 32 * 2 + 19 };
@@ -173,35 +220,47 @@ protected:
 	{
 		bool ray_mirror_changed = Option(ray_mirror);
 		bool ray_sync_changed = Option(ray_sync);
-		if(ray_mirror_changed || ray_sync_changed)
+		if(ray_sync_changed || (ray_mirror_changed && ray_sync))
 		{
-			Update();
+			updated = false;
 		}
-		if(ray_sync.Perfect())
+		if(ray_sync.Perfect() && frame_rate && vblank)
 		{
-			PerfectSyncOptions();
+			bool fr_changed = Option(frame_rate);
+			bool ft_changed = Option(fine_tune);
+			bool vb_changed = Option(vblank);
+			if(fr_changed || ft_changed || vb_changed)
+			{
+				updated = false;
+			}
 		}
 	}
-	virtual void PerfectSyncOptions() {}
 protected:
 	int frame_counter;
 	eRayMirror ray_mirror;
 	eRaySync ray_sync;
+	eFrameRate* frame_rate;
+	eFineTune fine_tune;
+	eVBlank* vblank;
+	bool updated;
 };
 DECLARE_REGISTRATOR(eLcds, eLcd);
 
 class eLcd9325 : public eLcd
 {
 public:
-	virtual ~eLcd9325()
-	{
-		SAFE_DELETE(frame_rate);
-		SAFE_DELETE(vblank);
-	}
-	virtual void Init()
+	eLcd9325()
 	{
 		frame_rate = new eFrameRate9325;
 		vblank = new eVBlank9325;
+	}
+	virtual ~eLcd9325()
+	{
+		if(ray_sync)
+		{
+			ray_sync.Set(eRaySync::S_OFF);
+			Update();
+		}
 	}
 	virtual const char*	Value() const { return "ILI9325"; }
 protected:
@@ -218,34 +277,22 @@ protected:
 		bool mv = ray_mirror.V();
 		word entry = ray_sync ? 0x1070 : 0x1048|(!mv ? 1 << 4 : 0)|(!mh ? 1 << 5 : 0);
 		Set(R_ENTRY, entry);
-		word vb = ((*vblank + 1) << 8)|(*vblank + 1);
-		Set(R_VBLANK, ray_sync.Perfect() ? vb : vblank->Default());
+		dword vb = ray_sync.Perfect() ? (*vblank << 8)|*vblank : vblank->Default();
+		Set(R_VBLANK, vb);
 		Set(R_FRAME_RATE, ray_sync.Perfect() ? *frame_rate : 0xd);
 		Set(R_GRAM_HADDR, ray_sync || !mv ? 0 : 239);
 		Set(R_GRAM_VADDR, ray_sync || !mh ? 0 : 319);
 		Set(R_GRAM_WRITE);
 	}
-	virtual void PerfectSyncOptions()
-	{
-		bool frame_rate_changed = Option(frame_rate);
-		bool vblank_changed = Option(vblank);
-		if(frame_rate_changed || vblank_changed)
-		{
-			Update();
-		}
-	}
 	enum eRegister { R_ENTRY = 0x03, R_RESET = 0x07, R_VBLANK = 0x08
 		, R_GRAM_HADDR = 0x20, R_GRAM_VADDR = 0x21, R_GRAM_WRITE = 0x22, R_FRAME_RATE = 0x2b };
-protected:
-	eFrameRate* frame_rate;
-	eVBlank* vblank;
 };
 REGISTER_TYPE(eLcds, eLcd9325, "9325");
 
 class eLcd9331 : public eLcd9325
 {
 public:
-	virtual void Init()
+	eLcd9331()
 	{
 		frame_rate = new eFrameRate9331;
 		vblank = new eVBlank9331;
@@ -272,7 +319,7 @@ protected:
 		bool mv = ray_mirror.V();
 		word access = ray_sync ? 0x08 : 0x28|(mv ? 1 << 6 : 0)|(mh ? 1 << 7 : 0);
 		Set(R_MEMORY_ACCESS, access);
-		word vblank = ray_sync.Perfect() ? vblank : 0x02;
+		word vblank = ray_sync.Perfect() ? 0x0f : 0x02;
 		Set(R_VBLANK, vblank, vblank, 0x0a, 0x14);
 		word frame_rate = ray_sync.Perfect() ? 0x0112 : 0x0011;
 		Set(R_FRAME_RATE, frame_rate >> 8, frame_rate&0xff);
@@ -288,34 +335,40 @@ protected:
 };
 REGISTER_TYPE(eLcds, eLcd9338, "9338");
 
+#define BGR565(r, g, b) ((r&~7) << 8)|((g&~3) << 3)|(b >> 3)
+
 static class eVideo
 {
 public:
 	eVideo();
-	~eVideo() { SAFE_CALL(lcd)->Done(); SAFE_DELETE(lcd); }
+	~eVideo() { SAFE_DELETE(lcd); }
 	void Flip();
 	void Update();
 protected:
-	inline dword BGR565(byte r, byte g, byte b) const { return (((r&~7) << 8)|((g&~3) << 3)|(b >> 3)); }
+	void UpdatePalette()
+	{
+		const dword* p = Palette();
+		if(p == palette)
+			return;
+		palette = p;
+		for(int i = 0; i < 16; ++i)
+		{
+			xUi::eRGBAColor c(*p);
+			colors888[i] = c.rgba;
+			colors565[i] = BGR565(c.r, c.g, c.b);
+			++p;
+		}
+	}
 protected:
 	word colors565[16];
 	dword colors888[16];
+	const dword* palette;
 	eLcd* lcd;
 	word* frame;
 } video;
 
-eVideo::eVideo() : lcd(NULL), frame(NULL)
+eVideo::eVideo() : palette(NULL), lcd(NULL), frame(NULL)
 {
-	for(int c = 0; c < 16; ++c)
-	{
-		enum { BRIGHTNESS = 190, BRIGHT_INTENSITY = 65 };
-		byte i = c&8 ? BRIGHTNESS + BRIGHT_INTENSITY : BRIGHTNESS;
-		byte b = c&1 ? i : 0;
-		byte r = c&2 ? i : 0;
-		byte g = c&4 ? i : 0;
-		colors888[c] = xUi::eRGBAColor(r, g, b).rgba;
-		colors565[c] = BGR565(r, g, b);
-	}
 	enum { LCD_NAME_OFFSET = 72 };
 	const char* lcd_name = (const char*)sys_get_ccpmp_config() + LCD_NAME_OFFSET;
 	for(int i = 0; i < 32; ++i)
@@ -324,10 +377,7 @@ eVideo::eVideo() : lcd(NULL), frame(NULL)
 		strncpy(lcd_id, &lcd_name[i], 4);
 		lcd = eLcds::Create(lcd_id);
 		if(lcd)
-		{
-			lcd->Init();
 			break;
-		}
 	}
 	frame = (word*)_lcd_get_frame();
 }
@@ -340,12 +390,18 @@ void eVideo::Flip()
 void eVideo::Update()
 {
 	PROFILER_SECTION(draw);
+	if(lcd)
+	{
+		lcd->Apply();
+		Handler()->VideoFrameRate(lcd->FrameRate());
+	}
+	UpdatePalette();
 	const byte* src = (const byte*)Handler()->VideoData();
 	const byte* src_ui = (const byte*)Handler()->VideoDataUI();
 	word* dst = frame;
 	int ray_sync = lcd ? lcd->RaySync() : 0;
-	bool mirr_h = ray_sync && lcd ? lcd->RayMirror().H() : 0;
-	bool mirr_v = ray_sync && lcd ? lcd->RayMirror().V() : 0;
+	bool mirr_h = ray_sync && lcd ? lcd->RayMirror().H() : false;
+	bool mirr_v = ray_sync && lcd ? lcd->RayMirror().V() : false;
 	int offs_base = mirr_h ? 319 : 0;
 	int ext_step = !ray_sync ? 320 : mirr_h ? -1 : 1;
 	int int_step = !ray_sync ? 1 : mirr_v ? -320 : 320;
@@ -376,13 +432,13 @@ void eVideo::Update()
 	}
 }
 
-void UpdateVideo()
+void VideoUpdate()
 {
 	while(!__dmac_channel_transmit_end_detected(0));
 	video.Update();
 	__dcache_writeback_all();
 }
-void FlipVideo() { video.Flip(); }
+void VideoFlip() { video.Flip(); }
 
 }
 //namespace xPlatform

@@ -23,14 +23,19 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
+
 #if defined(_WINDOWS) || defined(_LINUX) || defined(_MAC)
 
+#ifndef USE_BENCHMARK
 #ifndef USE_SDL
+
 #define USE_OAL
 #define USE_GL
 //#define USE_GLUT
 #define USE_WXWIDGETS
+
 #endif//USE_SDL
+#endif//USE_BENCHMARK
 
 #define USE_PNG
 #define USE_CONFIG
@@ -88,6 +93,7 @@ struct eHandler
 	virtual void* VideoDataUI() = 0;
 	// pause/resume function for sync video by audio
 	virtual void VideoPaused(bool paused) = 0;
+	virtual void VideoFrameRate(int v) = 0;
 	// audio
 	virtual int	AudioSources() = 0;
 	virtual void* AudioData(int source) = 0;
@@ -98,6 +104,8 @@ struct eHandler
 };
 
 eHandler* Handler();
+
+void GetScaleWithAspectRatio43(float* sx, float* sy, int _w, int _h);
 
 }
 //namespace xPlatform

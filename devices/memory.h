@@ -23,6 +23,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
+#undef PAGE_SIZE
+
 //*****************************************************************************
 //	eMemory
 //-----------------------------------------------------------------------------
@@ -101,6 +103,7 @@ public:
 		ROM_DOS		= eMemory::P_ROM3,
 		ROM_48		= eMemory::P_ROM4,
 	};
+	virtual const char* Name() const { return "rom"; }
 protected:
 	void LoadRom(int page, const char* rom);
 
@@ -124,6 +127,7 @@ public:
 	bool Mode48k() const { return mode_48k; }
 	static eDeviceId Id() { return D_RAM; }
 	virtual dword IoNeed() const { return ION_WRITE; }
+	virtual const char* Name() const { return "ram"; }
 protected:
 	eMemory* memory;
 	bool mode_48k;

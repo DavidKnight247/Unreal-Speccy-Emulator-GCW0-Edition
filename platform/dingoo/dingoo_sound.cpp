@@ -23,12 +23,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <dingoo/audio.h>
 
-OPTION_USING(eOptionB, op_ay);
-
 namespace xPlatform
 {
 
-static class eAudio : public xOptions::eRootOption<xOptions::eOptionB>
+class eAudio
 {
 public:
 	eAudio() : volume(0)
@@ -39,21 +37,13 @@ public:
 	}
 	~eAudio() { waveout_close(handle); }
 	void Update();
-	virtual const char* Name() const { return "sound"; }
-	virtual int Order() const { return 25; }
 protected:
 	void SetVolume(int v) { waveout_set_volume(v); }
-	virtual void OnOption()
-	{
-		Option(OPTION_GET(op_sound_source));
-		Option(OPTION_GET(op_volume));
-		Option(OPTION_GET(op_ay));
-	}
 protected:
 	void* handle;
 	int source;
 	int volume;
-} audio;
+};
 
 void eAudio::Update()
 {
@@ -75,7 +65,7 @@ void eAudio::Update()
 	}
 }
 
-void UpdateAudio() { audio.Update(); }
+void UpdateAudio() { static eAudio audio; audio.Update(); }
 
 }
 //namespace xPlatform

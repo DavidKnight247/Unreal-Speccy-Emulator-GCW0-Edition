@@ -24,9 +24,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //-----------------------------------------------------------------------------
 eDevices::eDevices()
 {
+	storeable = false;
 	memset(items, 0, sizeof(items));
-	memset(items_io_read, 0, sizeof(items_io_read));
-	memset(items_io_write, 0, sizeof(items_io_write));
 }
 //=============================================================================
 //	eDevices::~eDevices
@@ -43,6 +42,28 @@ eDevices::~eDevices()
 //-----------------------------------------------------------------------------
 void eDevices::Init()
 {
+	memset(items_io_read, 0, sizeof(items_io_read));
+	memset(items_io_write, 0, sizeof(items_io_write));
+	for(int i = 0; i < D_COUNT; ++i)
+	{
+		eDevice* d = items[i];
+		if(!*d)
+			continue;
+		if(d->IoNeed()&eDevice::ION_READ)
+		{
+			eDevice** dl = items_io_read;
+			while(*dl)
+				++dl;
+			*dl = d;
+		}
+		if(d->IoNeed()&eDevice::ION_WRITE)
+		{
+			eDevice** dl = items_io_write;
+			while(*dl)
+				++dl;
+			*dl = d;
+		}
+	}
 	int io_read_count = 0;
 	for(; items_io_read[io_read_count]; ++io_read_count);
 	int io_write_count = 0;
@@ -138,18 +159,22 @@ void eDevices::_Add(eDeviceId id, eDevice* d)
 	assert(d && !items[id]);
 	d->Init();
 	items[id] = d;
-	if(d->IoNeed()&eDevice::ION_READ)
+}
+void eDevices::OnOption()
+{
+	bool items_changed = false;
+	bool on = false;
+	for(int i = 0; i < D_COUNT; ++i)
 	{
-		eDevice** dl = items_io_read;
-		while(*dl)
-			++dl;
-		*dl = d;
+		eOptionBool* o = items[i];
+		if(changed)
+			o->Set(value);
+		if(Option(o))
+			items_changed = true;
+		if(*o)
+			on = true;
 	}
-	if(d->IoNeed()&eDevice::ION_WRITE)
-	{
-		eDevice** dl = items_io_write;
-		while(*dl)
-			++dl;
-		*dl = d;
-	}
+	Set(on);
+	if(items_changed)
+		Init();
 }

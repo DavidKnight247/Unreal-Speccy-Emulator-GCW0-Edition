@@ -19,15 +19,17 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #ifndef	__DEVICE_H__
 #define	__DEVICE_H__
 
+#include "../tools/options.h"
+
 #pragma once
 
 //*****************************************************************************
 //	eDevice
 //-----------------------------------------------------------------------------
-class eDevice
+class eDevice : public xOptions::eOptionBool
 {
 public:
-	eDevice() {}
+	eDevice() { Set(true); }
 	virtual ~eDevice() {}
 	virtual void Init() {}
 	virtual void Reset() {}
@@ -41,6 +43,14 @@ public:
 	virtual void IoRead(word port, byte* v, int tact) {}
 	virtual void IoWrite(word port, byte v, int tact) {}
 	virtual dword IoNeed() const { return 0; }
+protected:
+	virtual const char** Values() const { static const char* vs[] = { "[ ]", "[x]", NULL }; return vs; }
+	virtual void OnOption()
+	{
+		if(value)
+			_OnOption();
+	}
+	virtual void _OnOption() {}
 };
 
 enum eDeviceId { D_ROM, D_RAM, D_ULA, D_KEYBOARD, D_KEMPSTON_JOY, D_KEMPSTON_MOUSE, D_BEEPER, D_AY, D_WD1793, D_TAPE, D_COUNT };
@@ -48,13 +58,14 @@ enum eDeviceId { D_ROM, D_RAM, D_ULA, D_KEYBOARD, D_KEMPSTON_JOY, D_KEMPSTON_MOU
 //*****************************************************************************
 //	eDevices
 //-----------------------------------------------------------------------------
-class eDevices
+class eDevices : public xOptions::eOptionBool
 {
 public:
 	eDevices();
 	~eDevices();
 
 	void Init();
+	void Update();
 	void Reset();
 
 	template<class T> void Add(T* d) { _Add(T::Id(), d); }
@@ -78,8 +89,10 @@ public:
 	void FrameStart(dword tacts);
 	void FrameUpdate();
 	void FrameEnd(dword tacts);
-
+	virtual const char* Name() const { return "device"; }
 protected:
+	virtual const char** Values() const { static const char* vs[] = { "[ ]", "[x]", NULL }; return vs; }
+	virtual void OnOption();
 	void _Add(eDeviceId id, eDevice* d);
 	eDevice* _Get(eDeviceId id) const { return items[id]; }
 	eDevice* items[D_COUNT];

@@ -33,6 +33,7 @@ class eTape : public eDeviceSound
 	friend class xZ80::eZ80_FastTape;
 public:
 	eTape(eSpeccy* s) : speccy(s) {}
+	virtual ~eTape() { CloseTape(); }
 	virtual void Init();
 	virtual void Reset();
 	virtual bool IoRead(word port) const;
@@ -48,6 +49,7 @@ public:
 	virtual dword IoNeed() const { return ION_READ; }
 
 	byte TapeBit(int tact);
+	virtual const char* Name() const { return "tape"; }
 protected:
 	bool ParseTAP(const void* data, size_t data_size);
 	bool ParseCSW(const void* data, size_t data_size);

@@ -17,21 +17,45 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "../platform.h"
-#include "../../tools/options.h"
 
 #ifdef USE_OAL
 
-#ifndef _MAC
-#include <AL/al.h>
-#include <AL/alc.h>
-#else//_MAC
+#ifdef _WINDOWS
+#include <al.h>
+#include <alc.h>
+#elif defined(_MAC) || defined(_IOS)
 #include <OpenAL/al.h>
 #include <OpenAL/alc.h>
-#endif//_MAC
+#else//_MAC
+#include <AL/al.h>
+#include <AL/alc.h>
+#endif//_WINDOWS
+
+#include "../../tools/options.h"
+#include "../../tools/sound_mixer.h"
 
 namespace xPlatform
 {
-OPTION_USING(eOptionBool, op_true_speed);
+
+void DoneSound();
+void InitSound();
+
+static struct eOptionTrueSpeed : public xOptions::eRootOption<xOptions::eOptionBool>
+{
+	eOptionTrueSpeed() { Set(true); }
+	virtual const char* Name() const { return "true speed"; }
+	virtual int Order() const { return 75; }
+protected:
+	virtual void OnOption()
+	{
+		if(changed)
+		{
+			DoneSound();
+			InitSound();
+		}
+	}
+} op_true_speed;
+DECLARE_OPTION(eOptionBool, op_true_speed);
 
 struct eSource
 {
@@ -58,19 +82,21 @@ struct eSource
 		Clear();
 	}
 	enum eUpdateResult { U_OK, U_SKIP, U_MUCH, U_LESS  };
-	eUpdateResult Update(dword data_ready, void* data);
+	eUpdateResult Update();
 	enum { BUFFER_COUNT = 4 };
 	ALuint buffers[BUFFER_COUNT];
 	ALuint source;
 	ALuint free_buf;
 	bool first_fill;
+	eSoundMixer mixer;
 };
-eSource::eUpdateResult eSource::Update(dword data_ready, void* data)
+eSource::eUpdateResult eSource::Update()
 {
-	xOptions::eOptionBool* op_true_speed = OPTION_GET(op_true_speed);
-	const float fps = op_true_speed && *op_true_speed ? 50.0f : 60.0f;
+	mixer.Update();
+	const float fps = op_true_speed ? 50.0f : 60.0f;
 	const float fps_org = 50.0f;
 	dword frame_data = 44100*2*2/fps_org;
+	dword data_ready = mixer.Ready();
 	if(data_ready < frame_data*2)
 		return U_LESS;
 
@@ -89,7 +115,8 @@ eSource::eUpdateResult eSource::Update(dword data_ready, void* data)
 	}
 	if(next_buf)
 	{
-		alBufferData(buffers[free_buf], AL_FORMAT_STEREO16, data, data_ready, 44100*fps/fps_org);
+		alBufferData(buffers[free_buf], AL_FORMAT_STEREO16, mixer.Ptr(), data_ready, 44100*fps/fps_org);
+		mixer.Use(data_ready);
 		alSourceQueueBuffers(source, 1, &buffers[free_buf]);
 		if(++free_buf == BUFFER_COUNT)
 		{
@@ -111,8 +138,7 @@ eSource::eUpdateResult eSource::Update(dword data_ready, void* data)
 	return next_buf ? U_OK : (data_ready > frame_data*3 ? U_MUCH : U_SKIP);
 }
 
-enum { MAX_SOURCES = 5 };
-static eSource sources[MAX_SOURCES];
+static eSource source_mixed;
 static ALCdevice* device = NULL;
 static ALCcontext* context = NULL;
 
@@ -126,23 +152,14 @@ void InitSound()
 		return;
 	alcMakeContextCurrent(context);
 	alcProcessContext(context);
-
-	int s = Handler()->AudioSources();
-	assert(s < MAX_SOURCES);
-	for(int i = s; --i >= 0;)
-	{
-		sources[i].Init();
-	}
+	source_mixed.Init();
 }
 
 void DoneSound()
 {
 	if(device && context)
 	{
-		for(int i = Handler()->AudioSources(); --i >= 0;)
-		{
-			sources[i].Done();
-		}
+		source_mixed.Done();
 	}
 	if(context)
 	{
@@ -162,26 +179,7 @@ void OnLoopSound()
 	if(!device || !context)
 		return;
 	static bool video_paused = false;
-	bool video_paused_new = false;
-	for(int i = Handler()->AudioSources(); --i >= 0;)
-	{
-		dword data_ready = Handler()->AudioDataReady(i);
-		void* data = Handler()->AudioData(i);
-		eSource::eUpdateResult r = sources[i].Update(data_ready, data);
-		switch(r)
-		{
-		case eSource::U_OK:
-			Handler()->AudioDataUse(i, data_ready);
-			//no break;
-		case eSource::U_LESS:
-			break;
-		case eSource::U_MUCH:
-			video_paused_new = true;
-			break;
-		default:
-			break;
-		}
-	}
+	bool video_paused_new = source_mixed.Update() == eSource::U_MUCH;
 	if(video_paused_new != video_paused)
 	{
 		video_paused = video_paused_new;

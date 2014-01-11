@@ -39,31 +39,31 @@ class eDeviceSound : public eDevice
 {
 public:
 	eDeviceSound();
+	void FrameRate(dword v) { frame_rate = v; } //28.4 fixedpoint
 	void SetTimings(dword clock_rate, dword sample_rate);
 
 	virtual void FrameStart(dword tacts);
 	virtual void FrameEnd(dword tacts);
 	virtual void Update(dword tact, dword l, dword r);
 
-	enum { BUFFER_LEN = 16384 };
-
 	void* AudioData();
 	dword AudioDataReady();
 	void AudioDataUse(dword size);
-
 protected:
-	dword mix_l, mix_r;
-	SNDSAMPLE* dstpos;
-	dword clock_rate, sample_rate;
-
+	void Flush(dword endtick);
+protected:
+	enum { BUFFER_LEN = 16384 };
 	SNDSAMPLE buffer[BUFFER_LEN];
+	SNDSAMPLE* dstpos;
 
-private:
+	dword mix_l, mix_r;
+	dword clock_rate_default;
+	dword clock_rate;
+	dword sample_rate;
 	dword tick, base_tick;
 	dword s1_l, s1_r;
 	dword s2_l, s2_r;
-
-	void Flush(dword endtick);
+	dword frame_rate;
 };
 
 #endif//__DEVICE_SOUND_H__

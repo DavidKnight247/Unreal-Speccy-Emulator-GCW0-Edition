@@ -31,7 +31,7 @@ public class FileSelectorFS extends FileSelector
 	private static State state = new State();
 	@Override
 	State State() { return state; }
-	boolean LongUpdate() { return false; }
+	boolean LongUpdate(final File path) { return false; }
     @Override
     public void onCreate(Bundle savedInstanceState)
     {
@@ -41,22 +41,20 @@ public class FileSelectorFS extends FileSelector
 	@Override
 	protected void onResume()
 	{
-		if(Items().size() == 0)
+		Items().clear(); // always update list because of changed files on other tabs
+		File last_file = new File(Emulator.the.GetLastFile());
+		State().last_name = last_file.getName();
+		State().current_path = last_file.getParentFile();
+		if(State().current_path == null || !State().current_path.exists())
 		{
-			File last_file = new File(Emulator.the.GetLastFile());
-			State().last_name = last_file.getName();
-			State().current_path = last_file.getParentFile();
-			if(State().current_path == null || !State().current_path.exists())
-			{
-				State().current_path = new File("/");
-				State().last_name = "";
-			}
+			State().current_path = new File("/");
+			State().last_name = "";
 		}
 		super.onResume();
 	}
 	class FSSFS extends FileSelectorSource
 	{
-		public GetItemsResult GetItems(final File path, List<Item> items)
+		public GetItemsResult GetItems(final File path, List<Item> items, FileSelectorProgress progress)
 		{
 			if(path.getParent() != null)
 			{
@@ -95,7 +93,7 @@ public class FileSelectorFS extends FileSelector
 			}
 			return GetItemsResult.OK;
 		}
-		public ApplyResult ApplyItem(Item item)
+		public ApplyResult ApplyItem(Item item, FileSelectorProgress progress)
 		{
 			File f = new File(State().current_path.getPath() + "/" + item.name);
 			return Emulator.the.Open(f.getAbsolutePath()) ? ApplyResult.OK : ApplyResult.UNSUPPORTED_FORMAT;

@@ -34,6 +34,7 @@ public:
 
 	static eDeviceId Id() { return D_KEYBOARD; }
 	virtual dword IoNeed() const { return ION_READ; }
+	virtual const char* Name() const { return "keyboard"; }
 protected:
 	void KeyState(char key, bool down);
 	byte Read(byte scan) const;

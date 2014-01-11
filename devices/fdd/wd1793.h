@@ -44,6 +44,7 @@ public:
 
 	static eDeviceId Id() { return D_WD1793; }
 	virtual dword IoNeed() const { return ION_WRITE|ION_READ; }
+	virtual const char* Name() const { return "wd1793"; }
 protected:
 	void	Process(int tact);
 	void	ReadFirstByte();

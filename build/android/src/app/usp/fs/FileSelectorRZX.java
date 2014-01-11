@@ -31,27 +31,29 @@ public class FileSelectorRZX extends FileSelector
 	@Override
 	State State() { return state; }
 	@Override
-	boolean LongUpdate() { return PathLevel(State().current_path) >= 1; }
+	boolean LongUpdate(final File path) { return PathLevel(path) >= 1; }
     @Override
 	public void onCreate(Bundle savedInstanceState)
 	{
 		super.onCreate(savedInstanceState);
 		sources.add(new FSSRZX());
 	}
-	class FSSRZX extends FSSWeb
+	class FSSRZX extends FSSHtml
 	{
-		private static final String RZX_FS = "/sdcard/usp/rzx";
+		private final String RZX_FS = StoragePath() + "rzx";
 		public String BaseURL() { return "http://www.rzxarchive.co.uk"; }
-		public String HtmlExt() { return ".php"; }
+		public String FullURL(final String _url) { return BaseURL() + _url + ".php"; }
 		public String HtmlEncoding() { return "iso-8859-1"; }
-		public ApplyResult ApplyItem(Item item)
+		public ApplyResult ApplyItem(Item item, FileSelectorProgress progress)
 		{
 			try
 			{
 				String p = item.url;
 				File file = new File(RZX_FS + p).getCanonicalFile();
-				if(!LoadFile(BaseURL() + p, file))
+				if(!LoadFile(BaseURL() + p, file, progress))
 					return ApplyResult.UNABLE_CONNECT2;
+				if(progress.Canceled())
+					return ApplyResult.CANCELED;
 				return Emulator.the.Open(file.getAbsolutePath()) ? ApplyResult.OK : ApplyResult.UNSUPPORTED_FORMAT;
 			}
 			catch(Exception e)
@@ -59,7 +61,7 @@ public class FileSelectorRZX extends FileSelector
 			}
 			return ApplyResult.FAIL;
 		}
-		public GetItemsResult GetItems(final File path, List<Item> items)
+		public GetItemsResult GetItems(final File path, List<Item> items, FileSelectorProgress progress)
 		{
 			File path_up = path.getParentFile();
 			if(path_up == null)
@@ -77,7 +79,7 @@ public class FileSelectorRZX extends FileSelector
 			{
 				if(i.equals(n))
 				{
-					return ParseURL(Items2URLs()[idx], items, n);
+					return ParseURL(Items2URLs()[idx], items, n, progress);
 				}
 				++idx;
 			}

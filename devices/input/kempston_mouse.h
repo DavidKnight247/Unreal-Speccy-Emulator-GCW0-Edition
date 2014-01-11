@@ -35,6 +35,7 @@ public:
 
 	static eDeviceId Id() { return D_KEMPSTON_MOUSE; }
 	virtual dword IoNeed() const { return ION_READ; }
+	virtual const char* Name() const { return "kempston mouse"; }
 protected:
 	byte x, y, buttons;
 };

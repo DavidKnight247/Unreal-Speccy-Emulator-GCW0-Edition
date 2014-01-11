@@ -34,6 +34,16 @@ enum eDrive { D_FIRST, D_A = D_FIRST, D_B, D_C, D_D, D_LAST };
 OPTION_USING(eOptionString, op_last_file);
 const char* OpLastFolder();
 
+bool OpQuit();
+void OpQuit(bool v);
+
+eDrive OpDrive();
+void OpDrive(eDrive d);
+
+eJoystick OpJoystick();
+void OpJoystick(eJoystick v);
+dword OpJoyKeyFlags();
+
 OPTION_USING(eOptionInt, op_drive);
 OPTION_USING(eOptionInt, op_joy);
 dword OpJoyKeyFlags();

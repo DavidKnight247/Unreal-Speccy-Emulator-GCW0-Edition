@@ -55,9 +55,10 @@ DECLARE_OPTION(eOptionString, op_last_file);
 
 const char* OpLastFolder() { return op_last_file.Folder(); }
 
-struct eOptionState : public xOptions::eOptionB
+struct eOptionState : public xOptions::eOptionBool
 {
 	eOptionState() { storeable = false; }
+	virtual const char*	Value() const { return NULL; }
 	const char* SnapshotName() const
 	{
 		static char name[xIo::MAX_PATH_LEN];
@@ -83,7 +84,9 @@ static struct eOptionSaveState : public eOptionState
 	{
 		const char* name = SnapshotName();
 		if(name)
-			Handler()->OnSaveFile(name);
+			Set(Handler()->OnSaveFile(name));
+		else
+			Set(false);
 	}
 } op_save_state;
 DECLARE_OPTION(eOptionB, op_save_state);
@@ -95,7 +98,9 @@ static struct eOptionLoadState : public eOptionState
 	{
 		const char* name = SnapshotName();
 		if(name)
-			Handler()->OnOpenFile(name);
+			Set(Handler()->OnOpenFile(name));
+		else
+			Set(false);
 	}
 } op_load_state;
 DECLARE_OPTION(eOptionB, op_load_state);
@@ -103,7 +108,6 @@ DECLARE_OPTION(eOptionB, op_load_state);
 OPTION_USING(eOptionBool, op_tape_fast);
 static struct eOptionTape : public xOptions::eRootOption<xOptions::eOptionInt>
 {
-	typedef xOptions::eRootOption<xOptions::eOptionInt> eInherited;
 	eOptionTape() { storeable = false; }
 	virtual const char* Name() const { return "tape"; }
 	virtual int Order() const { return 5; }
@@ -233,8 +237,6 @@ static struct eOptionJoy : public xOptions::eRootOption<xOptions::eOptionInt>
 } op_joy;
 DECLARE_OPTION(eOptionInt, op_joy);
 
-dword OpJoyKeyFlags() { return op_joy.KeyFlags(); }
-
 static struct eOptionSound : public xOptions::eRootOption<xOptions::eOptionB>
 {
 	virtual const char* Name() const { return "sound"; }
@@ -244,7 +246,6 @@ protected:
 	{
 		Option(op_sound_source);
 		Option(op_volume);
-		Option(OPTION_GET(op_ay));
 	}
 } op_sound;
 
@@ -264,6 +265,16 @@ static struct eOptionQuit : public xOptions::eRootOption<xOptions::eOptionBool>
 	virtual const char** Values() const { return NULL; }
 } op_quit;
 DECLARE_OPTION(eOptionBool, op_quit);
+
+bool OpQuit() { return op_quit; }
+void OpQuit(bool v) { op_quit.Set(v); }
+
+eDrive OpDrive() { return (eDrive)(int)op_drive; }
+void OpDrive(eDrive d) { op_drive.Set(d); }
+
+eJoystick OpJoystick() { return (eJoystick)(int)op_joy; }
+void OpJoystick(eJoystick v) { op_joy.Set(v); }
+dword OpJoyKeyFlags() { return op_joy.KeyFlags(); }
 
 }
 //namespace xPlatform

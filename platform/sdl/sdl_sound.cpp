@@ -1,6 +1,6 @@
 /*
 Portable ZX-Spectrum emulator.
-Copyright (C) 2001-2010 SMT, Dexus, Alone Coder, deathsoft, djdron, scor
+Copyright (C) 2001-2013 SMT, Dexus, Alone Coder, deathsoft, djdron, scor
 
 This program is free software: you can redistribute it and/or modify
 it under the terms of the GNU General Public License as published by
@@ -22,95 +22,67 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #include <SDL.h>
 #include "../../options_common.h"
+#include "../../tools/options.h"
+#include "../../tools/sound_mixer.h"
 
 namespace xPlatform
 {
 
-class eAudioBuffer
-{
-public:
-	enum { SIZE = 65536 };
-	eAudioBuffer()
-	{
-		begin = data;
-		end = begin + SIZE;
-		current = ready = begin;
-	}
-	void Add(byte* data, size_t size) { memcpy(ready, data, size); ready += size; }
-	byte* Current() const { return current; }
-	size_t Ready() const { return ready - current; }
-	void Use(size_t size) { current += size; Purge(); }
-
-protected:
-	void Purge()
-	{
-		if(current - begin > SIZE/2)
-		{
-			size_t size = Ready();
-			memcpy(begin, current, size);
-			current = begin;
-			ready = begin + size;
-		}
-	}
-
-protected:
-	byte* begin;
-	byte* end;
-	byte* current;
-	byte* ready;
-	byte data[SIZE];
-};
-
-static eAudioBuffer* audio_buffer = NULL;
+static eSoundMixer sound_mixer;
 
 static void AudioCallback(void* userdata, Uint8* stream, int len)
 {
-	if(audio_buffer->Ready() >= (size_t)len)
+	if((dword)len <= sound_mixer.Ready())
 	{
-		memcpy(stream, audio_buffer->Current(), len);
-		audio_buffer->Use(len);
+		memcpy(stream, sound_mixer.Ptr(), len);
+		sound_mixer.Use(len);
+	}
+	else
+	{
+		memcpy(stream, sound_mixer.Ptr(), sound_mixer.Ready());
+		memset(stream + sound_mixer.Ready(), 0, len - sound_mixer.Ready());
+		sound_mixer.Use(sound_mixer.Ready());
 	}
 }
 
 bool InitAudio()
 {
+	using namespace xOptions;
+	struct eOptionBX : public eOptionB
+	{
+		void Unuse() { customizable = false; storeable = false; }
+	};
+	eOptionBX* o = (eOptionBX*)eOptionB::Find("sound");
+	SAFE_CALL(o)->Unuse();
+	o = (eOptionBX*)eOptionB::Find("volume");
+	SAFE_CALL(o)->Unuse();
+
 	SDL_AudioSpec audio;
 	memset(&audio, 0, sizeof(audio));
 	audio.freq = 44100;
 	audio.channels = 2;
 	audio.format = AUDIO_S16SYS;
 #ifndef SDL_AUDIO_SAMPLES
-#define SDL_AUDIO_SAMPLES 4096
+#define SDL_AUDIO_SAMPLES 512
 #endif//SDL_AUDIO_SAMPLES
 	audio.samples = SDL_AUDIO_SAMPLES;
 	audio.callback = AudioCallback;
 	if(SDL_OpenAudio(&audio, NULL) < 0)
 		return false;
-	audio_buffer = new eAudioBuffer;
 	SDL_PauseAudio(0);
 	return true;
 }
 void DoneAudio()
 {
 	SDL_PauseAudio(1);
-	SAFE_DELETE(audio_buffer);
 }
 
 void UpdateAudio()
 {
 	SDL_LockAudio();
-	for(int i = Handler()->AudioSources(); --i >= 0;)
-	{
-		dword size = Handler()->AudioDataReady(i);
-		bool ui_enabled = Handler()->VideoDataUI();
-		if(size && i == *OPTION_GET(op_sound_source) && !ui_enabled && !Handler()->FullSpeed())
-		{
-			audio_buffer->Add((byte*)Handler()->AudioData(i), size);
-		}
-		Handler()->AudioDataUse(i, size);
-	}
+	sound_mixer.Update();
 	static bool audio_filled = false;
-	bool audio_filled_new = audio_buffer->Ready() > audio_buffer->SIZE/4;
+	bool audio_filled_new = sound_mixer.Ready() > 44100*2*2/50*7; // 7-frame data
 	if(audio_filled != audio_filled_new)
 	{
 		audio_filled = audio_filled_new;

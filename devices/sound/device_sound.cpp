@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //=============================================================================
 //	eDeviceSound::eDeviceSound
 //-----------------------------------------------------------------------------
-eDeviceSound::eDeviceSound() : mix_l(0), mix_r(0)
+eDeviceSound::eDeviceSound() : frame_rate(50 << 4), mix_l(0), mix_r(0), s1_l(0), s1_r(0), s2_l(0), s2_r(0)
 {
 	SetTimings(SNDR_DEFAULT_SYSTICK_RATE, SNDR_DEFAULT_SAMPLE_RATE);
 }
@@ -57,8 +57,12 @@ void eDeviceSound::Update(dword tact, dword l, dword r)
 //-----------------------------------------------------------------------------
 void eDeviceSound::FrameEnd(dword tacts)
 {
+	dword cr = (tacts * frame_rate) >> 4;
+	if(cr < clock_rate_default / 2)
+		cr = clock_rate_default;
 	dword endtick = (tacts * (qword)sample_rate * TICK_F) / clock_rate;
 	Flush(base_tick + endtick);
+	clock_rate = cr; //auto adjusting by frame tacts
 }
 //=============================================================================
 //	eDeviceSound::AudioData
@@ -87,7 +91,7 @@ void eDeviceSound::AudioDataUse(dword size)
 //-----------------------------------------------------------------------------
 void eDeviceSound::SetTimings(dword _clock_rate, dword _sample_rate)
 {
-	clock_rate = _clock_rate;
+	clock_rate_default = clock_rate = _clock_rate;
 	sample_rate = _sample_rate;
 
 	tick = base_tick = 0;

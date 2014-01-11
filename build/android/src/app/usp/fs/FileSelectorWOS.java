@@ -36,7 +36,7 @@ public class FileSelectorWOS extends FileSelector
 	@Override
 	State State() { return state; }
 	@Override
-	boolean LongUpdate() { return PathLevel(State().current_path) >= 2; }
+	boolean LongUpdate(final File path) { return PathLevel(path) >= 2; }
     @Override
 	public void onCreate(Bundle savedInstanceState)
 	{
@@ -45,18 +45,20 @@ public class FileSelectorWOS extends FileSelector
 		sources.add(new ParserAdventures());
 		sources.add(new ParserUtilites());
 	}
-	abstract class FSSWOS extends FSSWeb
+	abstract class FSSWOS extends FSSHtml
 	{
-		private static final String WOS_FS = "/sdcard/usp/wos";
+		private final String WOS_FS = StoragePath() + "wos";
 		public String BaseURL() { return "http://www.worldofspectrum.org"; }
-		public String HtmlExt() { return ".html"; }
+		public String FullURL(final String _url) { return BaseURL() + _url + ".html"; }
 		public String HtmlEncoding() { return "iso-8859-1"; }
 		final static String FTP_URL = "ftp://ftp.worldofspectrum.org/pub/sinclair/";
-		public ApplyResult ApplyItem(Item item)
+		public ApplyResult ApplyItem(Item item, FileSelectorProgress progress)
 		{
-			String s = LoadText("http://www.worldofspectrum.org/api/infoseek_select_json.cgi?id=" + item.url, HtmlEncoding());
+			String s = LoadText("http://www.worldofspectrum.org/api/infoseek_select_json.cgi?id=" + item.url, HtmlEncoding(), progress);
 			if(s == null)
 				return ApplyResult.UNABLE_CONNECT1;
+			if(progress.Canceled())
+				return ApplyResult.CANCELED;
 			JSONObject desc = null;
 			try
 			{
@@ -93,8 +95,10 @@ public class FileSelectorWOS extends FileSelector
 			{
 				String p = url.substring(FTP_URL.length() - 1);
 				File f = new File(WOS_FS + p).getCanonicalFile();
-				if(!LoadFile(url, f))
+				if(!LoadFile(url, f, progress))
 					return ApplyResult.UNABLE_CONNECT2;
+				if(progress.Canceled())
+					return ApplyResult.CANCELED;
 				return Emulator.the.Open(f.getAbsolutePath()) ? ApplyResult.OK : ApplyResult.UNSUPPORTED_FORMAT;
 			}
 			catch(IOException e) { return ApplyResult.FAIL; }
