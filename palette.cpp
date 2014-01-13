@@ -110,7 +110,7 @@ protected:
 	virtual const char** Values() const { return (const char**)values; }
 	virtual void OnOption()
 	{
-		if(loading)
+		if(loading && loading_node)
 		{
 			for(tinyxml2::XMLElement* xe = loading_node->FirstChildElement(); xe; xe = xe->NextSiblingElement())
 			{

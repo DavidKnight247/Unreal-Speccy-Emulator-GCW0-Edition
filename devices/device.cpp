@@ -26,6 +26,7 @@ eDevices::eDevices()
 {
 	storeable = false;
 	memset(items, 0, sizeof(items));
+	Set(true);
 }
 //=============================================================================
 //	eDevices::~eDevices
