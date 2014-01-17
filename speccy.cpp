@@ -48,15 +48,14 @@ eSpeccy::eSpeccy() : cpu(NULL), memory(NULL), frame_tacts(0)
 	int_len = 32;
 
 	memory = new eMemory;
-	devices.Add(new eRom(memory));
-	devices.Add(new eRam(memory));
+	devices.Add(memory);
 	devices.Add(new eUla(memory));
 	devices.Add(new eKeyboard);
 	devices.Add(new eKempstonJoy);
 	devices.Add(new eKempstonMouse);
 	devices.Add(new eBeeper);
 	devices.Add(new eAY);
-	devices.Add(new eWD1793(this, Device<eRom>()));
+	devices.Add(new eWD1793(this, memory));
 	devices.Add(new eTape(this));
 	cpu = new xZ80::eZ80(memory, &devices, frame_tacts);
 	Reset();
@@ -67,7 +66,6 @@ eSpeccy::eSpeccy() : cpu(NULL), memory(NULL), frame_tacts(0)
 eSpeccy::~eSpeccy()
 {
 	delete cpu;
-	delete memory;
 }
 //=============================================================================
 //	eSpeccy::Reset
@@ -77,22 +75,6 @@ void eSpeccy::Reset()
 	cpu->Reset();
 	devices.Init();
 	devices.Reset();
-}
-//=============================================================================
-//	eSpeccy::Mode48k
-//-----------------------------------------------------------------------------
-bool eSpeccy::Mode48k() const
-{
-	return Device<eRam>()->Mode48k();
-}
-//=============================================================================
-//	eSpeccy::Mode48k
-//-----------------------------------------------------------------------------
-void eSpeccy::Mode48k(bool on)
-{
-	Device<eRom>()->Mode48k(on);
-	Device<eRam>()->Mode48k(on);
-	Device<eUla>()->Mode48k(on);
 }
 //=============================================================================
 //	eSpeccy::Update

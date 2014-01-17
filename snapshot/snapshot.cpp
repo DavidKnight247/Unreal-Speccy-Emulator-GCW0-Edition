@@ -77,10 +77,8 @@ struct eZ80Accessor : public xZ80::eZ80
 	void UnpackPage(byte* dst, int dstlen, byte* src, int srclen);
 	void SetupDevices(bool model48k)
 	{
-		devices->Get<eRom>()->Mode48k(model48k);
-		devices->Get<eRam>()->Mode48k(model48k);
-		devices->Get<eUla>()->Mode48k(model48k);
 		devices->Init();
+		devices->Get<eMemory>()->Mode48k(model48k);
 	}
 };
 bool eZ80Accessor::SetState(const eSnapshot_SNA* s, size_t buf_size)
@@ -120,11 +118,11 @@ bool eZ80Accessor::SetState(const eSnapshot_SNA* s, size_t buf_size)
 	{
 		pc = memory->Read(sp) + 0x100 * memory->Read(sp+1);
 		sp += 2;
-		devices->Get<eRom>()->SelectPage(eRom::ROM_48);
+		devices->Get<eMemory>()->SetRomPage(eMemory::P_ROM_48);
 		return true;
 	}
 	devices->IoWrite(0x7ffd, s->p7FFD, t);
-	devices->Get<eRom>()->SelectPage(s->trdos ? eRom::ROM_DOS : eRom::ROM_128_0);
+	devices->Get<eMemory>()->SetRomPage(s->trdos ? eMemory::P_ROM_DOS : eMemory::P_ROM_128_0);
 	const byte* page = s->pages;
 	byte mapped = 0x24 | (1 << (s->p7FFD & 7));
 	for(int i = 0; i < 8; ++i)
@@ -139,7 +137,7 @@ bool eZ80Accessor::SetState(const eSnapshot_SNA* s, size_t buf_size)
 }
 size_t eZ80Accessor::StoreState(eSnapshot_SNA* s)
 {
-	s->trdos = devices->Get<eRom>()->DosSelected();
+	s->trdos = devices->Get<eMemory>()->DosSelected();
 	s->alt_af = alt.af; s->alt_bc = alt.bc;
 	s->alt_de = alt.de; s->alt_hl = alt.hl;
 	s->af = af; s->bc = bc; s->de = de; s->hl = hl;
@@ -167,7 +165,7 @@ size_t eZ80Accessor::StoreState(eSnapshot_SNA* s)
 	s->p7FFD = p7FFD;
 	s->pFE = pFE;
 	byte mapped = 0x24 | (1 << (p7FFD & 7));
-	if(devices->Get<eRam>()->Mode48k())
+	if(devices->Get<eMemory>()->Mode48k())
 	{
 		mapped = 0xff;
 		s->sp -= 2;
@@ -271,9 +269,9 @@ bool eZ80Accessor::SetState(const eSnapshot_Z80* s, size_t buf_size)
 	iff1 = s->iff1, iff2 = s->iff2; im = s->im & 3;
 	devices->IoWrite(0x7ffd, model48k ? 0x30 : s->p7FFD, t);
 	if(model48k)
-		devices->Get<eRom>()->SelectPage(eRom::ROM_48);
+		devices->Get<eMemory>()->SetRomPage(eMemory::P_ROM_48);
 	else
-		devices->Get<eRom>()->SelectPage((s->p7FFD & 0x10) ? eRom::ROM_128_0 : eRom::ROM_128_1);
+		devices->Get<eMemory>()->SetRomPage((s->p7FFD & 0x10) ? eMemory::P_ROM_128_0 : eMemory::P_ROM_128_1);
 	return true;
 }
 void eZ80Accessor::UnpackPage(byte* dst, int dstlen, byte* src, int srclen)

@@ -30,7 +30,7 @@ namespace xZ80
 //	eZ80::eZ80
 //-----------------------------------------------------------------------------
 eZ80::eZ80(eMemory* _m, eDevices* _d, dword _frame_tacts)
-	: memory(_m), rom(_d->Get<eRom>()), ula(_d->Get<eUla>()), devices(_d)
+	: memory(_m), ula(_d->Get<eUla>()), devices(_d)
 	, t(0), im(0), eipos(0)
 	, frame_tacts(_frame_tacts), fetches(0), reg_unused(0)
 {
@@ -77,7 +77,7 @@ inline byte eZ80::Read(word addr) const
 //-----------------------------------------------------------------------------
 void eZ80::StepF()
 {
-	rom->Read(pc);
+	memory->ReadRom(pc);
 	SAFE_CALL(handler.step)->Z80_Step(this);
 	(this->*normal_opcodes[Fetch()])();
 }
@@ -86,7 +86,7 @@ void eZ80::StepF()
 //-----------------------------------------------------------------------------
 void eZ80::Step()
 {
-	rom->Read(pc);
+	memory->ReadRom(pc);
 	(this->*normal_opcodes[Fetch()])();
 }
 //=============================================================================

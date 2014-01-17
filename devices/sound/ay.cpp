@@ -22,7 +22,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 static struct eOptionSoundChip : public xOptions::eOptionInt
 {
-	eOptionSoundChip() { Set(SC_AY); }
+	eOptionSoundChip() : owner(NULL) { Set(SC_AY); }
 	enum eType { SC_FIRST, SC_AY = SC_FIRST, SC_YM, SC_LAST };
 	virtual const char* Name() const { return "chip"; }
 	virtual const char** Values() const
@@ -34,11 +34,15 @@ static struct eOptionSoundChip : public xOptions::eOptionInt
 	{
 		eOptionInt::Change(SC_LAST, next);
 	}
+	void Owner(eAY* o) { owner = o; }
+	virtual void OnOption() { if(changed) owner->OnOptionChanged(); }
+	eAY* owner;
 } op_sound_chip;
+DECLARE_OPTION_ACCESSOR(eOptionInt, op_sound_chip);
 
 static struct eOptionAYStereo : public xOptions::eOptionInt
 {
-	eOptionAYStereo() { Set(AS_ABC); }
+	eOptionAYStereo() : owner(NULL)  { Set(AS_ABC); }
 	enum eMode { AS_FIRST, AS_ABC = AS_FIRST, AS_ACB, AS_BAC, AS_BCA, AS_CAB, AS_CBA, AS_MONO, AS_LAST };
 	virtual const char* Name() const { return "stereo"; }
 	virtual const char** Values() const
@@ -50,7 +54,11 @@ static struct eOptionAYStereo : public xOptions::eOptionInt
 	{
 		eOptionInt::Change(AS_LAST, next);
 	}
+	void Owner(eAY* o) { owner = o; }
+	virtual void OnOption() { if(changed) owner->OnOptionChanged(); }
+	eAY* owner;
 } op_ay_stereo;
+DECLARE_OPTION_ACCESSOR(eOptionInt, op_ay_stereo);
 
 const SNDCHIP_VOLTAB SNDR_VOL_AY_S =
 { { 0x0000,0x0000,0x0340,0x0340,0x04C0,0x04C0,0x06F2,0x06F2,0x0A44,0x0A44,0x0F13,0x0F13,0x1510,0x1510,0x227E,0x227E,
@@ -88,6 +96,8 @@ eAY::eAY() : t(0), ta(0), tb(0), tc(0), tn(0), te(0), env(0), denv(0)
 	,fa(0), fb(0), fc(0), fn(0), fe(0)
 	,activereg(0)
 {
+	op_sound_chip.Owner(this);
+	op_ay_stereo.Owner(this);
 	SetChip(CHIP_AY);
 	SetTimings(SNDR_DEFAULT_SYSTICK_RATE, SNDR_DEFAULT_AY_RATE, SNDR_DEFAULT_SAMPLE_RATE);
 	SetVolumes(0x7FFF, SNDR_VOL_AY, SNDR_PAN_ABC);
@@ -339,29 +349,24 @@ void eAY::ApplyRegs(dword timestamp)
 	}
 	activereg = ar;
 }
-void eAY::_OnOption()
+void eAY::OnOptionChanged()
 {
-	bool chip_changed = Option(op_sound_chip);
-	bool stereo_changed = Option(op_ay_stereo);
-	if(chip_changed || stereo_changed)
+	eOptionSoundChip::eType chip = (eOptionSoundChip::eType)(int)op_sound_chip;
+	eOptionAYStereo::eMode stereo = (eOptionAYStereo::eMode)(int)op_ay_stereo;
+	const SNDCHIP_PANTAB* sndr_pan = SNDR_PAN_MONO;
+	switch(stereo)
 	{
-		eOptionSoundChip::eType chip = (eOptionSoundChip::eType)(int)op_sound_chip;
-		eOptionAYStereo::eMode stereo = (eOptionAYStereo::eMode)(int)op_ay_stereo;
-		const SNDCHIP_PANTAB* sndr_pan = SNDR_PAN_MONO;
-		switch(stereo)
-		{
-		case eOptionAYStereo::AS_ABC: sndr_pan = SNDR_PAN_ABC; break;
-		case eOptionAYStereo::AS_ACB: sndr_pan = SNDR_PAN_ACB; break;
-		case eOptionAYStereo::AS_BAC: sndr_pan = SNDR_PAN_BAC; break;
-		case eOptionAYStereo::AS_BCA: sndr_pan = SNDR_PAN_BCA; break;
-		case eOptionAYStereo::AS_CAB: sndr_pan = SNDR_PAN_CAB; break;
-		case eOptionAYStereo::AS_CBA: sndr_pan = SNDR_PAN_CBA; break;
-		case eOptionAYStereo::AS_MONO: sndr_pan = SNDR_PAN_MONO; break;
-		case eOptionAYStereo::AS_LAST: break;
-		}
-		SetChip(chip == eOptionSoundChip::SC_AY ? CHIP_AY : CHIP_YM);
-		SetVolumes(0x7FFF, chip == eOptionSoundChip::SC_AY ? SNDR_VOL_AY : SNDR_VOL_YM, sndr_pan);
+	case eOptionAYStereo::AS_ABC: sndr_pan = SNDR_PAN_ABC; break;
+	case eOptionAYStereo::AS_ACB: sndr_pan = SNDR_PAN_ACB; break;
+	case eOptionAYStereo::AS_BAC: sndr_pan = SNDR_PAN_BAC; break;
+	case eOptionAYStereo::AS_BCA: sndr_pan = SNDR_PAN_BCA; break;
+	case eOptionAYStereo::AS_CAB: sndr_pan = SNDR_PAN_CAB; break;
+	case eOptionAYStereo::AS_CBA: sndr_pan = SNDR_PAN_CBA; break;
+	case eOptionAYStereo::AS_MONO: sndr_pan = SNDR_PAN_MONO; break;
+	case eOptionAYStereo::AS_LAST: break;
 	}
+	SetChip(chip == eOptionSoundChip::SC_AY ? CHIP_AY : CHIP_YM);
+	SetVolumes(0x7FFF, chip == eOptionSoundChip::SC_AY ? SNDR_VOL_AY : SNDR_VOL_YM, sndr_pan);
 }
 // corresponds enum CHIP_TYPE
 const char * const ay_chips[] = { "AY-3-8910", "YM2149F" };

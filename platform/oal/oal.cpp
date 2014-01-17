@@ -40,11 +40,10 @@ namespace xPlatform
 void DoneSound();
 void InitSound();
 
-static struct eOptionTrueSpeed : public xOptions::eRootOption<xOptions::eOptionBool>
+static struct eOptionTrueSpeed : public xOptions::eOptionBool
 {
 	eOptionTrueSpeed() { Set(true); }
 	virtual const char* Name() const { return "true speed"; }
-	virtual int Order() const { return 75; }
 protected:
 	virtual void OnOption()
 	{
@@ -55,7 +54,7 @@ protected:
 		}
 	}
 } op_true_speed;
-DECLARE_OPTION(eOptionBool, op_true_speed);
+DECLARE_OPTION_ACCESSOR(eOptionBool, op_true_speed);
 
 struct eSource
 {

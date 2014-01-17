@@ -27,21 +27,20 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #ifdef USE_UI
 
+static struct eOptionOpenFile : public xOptions::eOptionBool
+{
+	eOptionOpenFile() { storeable = false; }
+	virtual const char* Name() const { return "open"; }
+	virtual const char** Values() const { return NULL; }
+} op_open_file;
+DECLARE_OPTION_ACCESSOR(eOptionBool, op_open_file);
+
 namespace xUi
 {
 
 #ifdef USE_PROFILER
 eDialog* CreateProfiler();
 #endif//USE_PROFILER
-
-static struct eOptionOpenFile : public xOptions::eOptionB
-{
-	eOptionOpenFile() : on(false) { storeable = false; }
-	virtual const char* Name() const { return "open file"; }
-	virtual const char*	Value() const { return ">"; }
-	virtual void Change(bool next = true) { if(next) on = true; }
-	bool on;
-} op_open_file;
 
 //=============================================================================
 //	eMainDialog::eMainDialog
@@ -60,9 +59,9 @@ void eMainDialog::Update()
 		clear = false;
 		Clear();
 	}
-	if(op_open_file.on)
+	if(op_open_file)
 	{
-		op_open_file.on = false;
+		op_open_file.Set(false);
 		Clear();
 		eDialog* d = new eFileOpenDialog(xPlatform::OpLastFolder());
 		d->Id(D_FILE_OPEN);
@@ -143,5 +142,4 @@ void eMainDialog::OnNotify(byte n, byte from)
 }
 //namespace xUi
 
-DECLARE_OPTION_EX(eOptionB, &xUi::op_open_file, op_open_file);
 #endif//USE_UI

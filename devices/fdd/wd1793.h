@@ -25,7 +25,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #pragma once
 
 class eSpeccy;
-class eRom;
 
 //*****************************************************************************
 //	WD1793
@@ -33,14 +32,14 @@ class eRom;
 class eWD1793 : public eDevice
 {
 public:
-	eWD1793(eSpeccy* _speccy, eRom* _rom);
+	eWD1793(eSpeccy* _speccy, eMemory* _memory);
 	virtual void Init();
 	virtual bool IoRead(word port) const;
 	virtual bool IoWrite(word port) const;
 	virtual void IoRead(word port, byte* v, int tact);
 	virtual void IoWrite(word port, byte v, int tact);
-	bool Open(const char* type, int drive, const void* data, size_t data_size);
-	bool BootExist(int drive);
+	bool Open(const char* type, const void* data, size_t data_size);
+	bool BootExist();
 
 	static eDeviceId Id() { return D_WD1793; }
 	virtual dword IoNeed() const { return ION_WRITE|ION_READ; }
@@ -95,7 +94,7 @@ protected:
 	};
 protected:
 	eSpeccy* speccy;
-	eRom*	rom;
+	eMemory* memory;
 
 	qword	next;
 	int		tshift;

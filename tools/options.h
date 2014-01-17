@@ -24,9 +24,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #pragma once
 
-#define DECLARE_OPTION_EX(cls, p, id) xOptions::cls* _opt_##id = p
-#define DECLARE_OPTION_VOID(cls, id) DECLARE_OPTION_EX(cls, NULL, id)
-#define DECLARE_OPTION(cls, obj) DECLARE_OPTION_EX(cls, &obj, obj)
+#define DECLARE_OPTION_ACCESSOR_EX(cls, p, id) xOptions::cls* _opt_##id = p
+#define DECLARE_OPTION_ACCESSOR_NULL(cls, id) DECLARE_OPTION_ACCESSOR_EX(cls, NULL, id)
+#define DECLARE_OPTION_ACCESSOR(cls, obj) DECLARE_OPTION_ACCESSOR_EX(cls, &obj, obj)
 
 #define OPTION_USING(cls, id) extern xOptions::cls* _opt_##id
 #define OPTION_GET(id) _opt_##id

@@ -41,14 +41,13 @@ PROFILER_DECLARE(draw);
 namespace xPlatform
 {
 
-static struct eOptionZoom : public xOptions::eRootOption<xOptions::eOptionInt>
+static struct eOptionZoom : public xOptions::eOptionInt
 {
 	virtual const char* Name() const { return "zoom"; }
 	virtual void Change(bool next = true)
 	{
 		eOptionInt::Change(3, next);
 	}
-	virtual int Order() const { return 35; }
 	float Zoom() const
 	{
 		switch(*this)
@@ -65,15 +64,16 @@ protected:
 		return values;
 	}
 } op_zoom;
+DECLARE_OPTION_ACCESSOR(eOptionInt, op_zoom);
 
 float OpZoom() { return op_zoom.Zoom(); }
 
-static struct eOptionFiltering : public xOptions::eRootOption<xOptions::eOptionBool>
+static struct eOptionFiltering : public xOptions::eOptionBool
 {
 	eOptionFiltering() { Set(true); }
 	virtual const char* Name() const { return "filtering"; }
-	virtual int Order() const { return 36; }
 } op_filtering;
+DECLARE_OPTION_ACCESSOR(eOptionBool, op_filtering);
 
 
 static dword tex[512*256];

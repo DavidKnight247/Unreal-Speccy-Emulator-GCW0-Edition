@@ -29,7 +29,7 @@ class eMemory;
 //*****************************************************************************
 //	eSpeccy
 //-----------------------------------------------------------------------------
-class eSpeccy : public xOptions::eRootOption<xOptions::eOptionB>
+class eSpeccy
 {
 public:
 	eSpeccy();
@@ -44,13 +44,7 @@ public:
 	template<class D> D* Device() const { return devices.Get<D>(); }
 
 	qword T() const { return t_states; }
-
-	bool Mode48k() const;
-	void Mode48k(bool on);
-	virtual const char* Name() const { return "speccy"; }
-	virtual int Order() const { return 40; }
 protected:
-	virtual void OnOption() { Option(devices); }
 	xZ80::eZ80* cpu;
 	eMemory* memory;
 	eDevices devices;

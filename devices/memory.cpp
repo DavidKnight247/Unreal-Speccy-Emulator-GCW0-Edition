@@ -36,10 +36,16 @@ extern byte service[];
 extern byte dos513f[];
 #endif//USE_EXTERN_RESOURCES
 
+static struct eOptionResetToServiceRom : public xOptions::eOptionBool
+{
+	virtual const char* Name() const { return "reset to service rom"; }
+} op_reset_to_service_rom;
+DECLARE_OPTION_ACCESSOR(eOptionBool, op_reset_to_service_rom);
+
 //=============================================================================
 //	eMemory::eMemory
 //-----------------------------------------------------------------------------
-eMemory::eMemory() : memory(NULL)
+eMemory::eMemory() : rom_page_selected(0), mode_48k(false)
 {
 	memory = new byte[SIZE];
 	memset(memory, 0, SIZE);
@@ -50,6 +56,36 @@ eMemory::eMemory() : memory(NULL)
 eMemory::~eMemory()
 {
 	delete[] memory;
+}
+//=============================================================================
+//	eMemory::Init
+//-----------------------------------------------------------------------------
+void eMemory::Init()
+{
+#if defined(USE_EMBEDDED_RESOURCES) || defined(USE_EXTERN_RESOURCES)
+	memcpy(memory->Get(P_ROM_128_0),	sos128_0,	eMemory::PAGE_SIZE);
+	memcpy(memory->Get(P_ROM_128_1),	sos128_1,	eMemory::PAGE_SIZE);
+	memcpy(memory->Get(P_ROM_48),		sos48,		eMemory::PAGE_SIZE);
+	memcpy(memory->Get(P_ROM_SYS),		service,	eMemory::PAGE_SIZE);
+	memcpy(memory->Get(P_ROM_DOS),		dos513f,	eMemory::PAGE_SIZE);
+#else//USE_EMBEDDED_RESOURCES
+	LoadRom(P_ROM_128_0,	xIo::ResourcePath("res/rom/sos128_0.rom"));
+	LoadRom(P_ROM_128_1,	xIo::ResourcePath("res/rom/sos128_1.rom"));
+	LoadRom(P_ROM_48,		xIo::ResourcePath("res/rom/sos48.rom"));
+	LoadRom(P_ROM_SYS,		xIo::ResourcePath("res/rom/service.rom"));
+	LoadRom(P_ROM_DOS,		xIo::ResourcePath("res/rom/dos513f.rom"));
+#endif//USE_EMBEDDED_RESOURCES
+}
+//=============================================================================
+//	eMemory::Reset
+//-----------------------------------------------------------------------------
+void eMemory::Reset()
+{
+	mode_48k = false;
+	SetRomPage(op_reset_to_service_rom ? P_ROM_SYS : P_ROM_128_1);
+	SetPage(1, P_RAM5);
+	SetPage(2, P_RAM2);
+	SetPage(3, P_RAM0);
 }
 //=============================================================================
 //	eMemory::SetPage
@@ -74,80 +110,46 @@ int	eMemory::Page(int idx)
 	assert(false);
 	return -1;
 }
-
 //=============================================================================
-//	eRom::LoadRom
+//	eMemory::::LoadRom
 //-----------------------------------------------------------------------------
-void eRom::LoadRom(int page, const char* rom)
+void eMemory::LoadRom(int page, const char* rom)
 {
 	FILE* f = fopen(rom, "rb");
 	assert(f);
-	size_t s = fread(memory->Get(page), 1, eMemory::PAGE_SIZE, f);
-	assert(s == eMemory::PAGE_SIZE);
+	size_t s = fread(Get(page), 1, PAGE_SIZE, f);
+	assert(s == PAGE_SIZE);
 	fclose(f);
 }
-//=============================================================================
-//	eRom::Init
-//-----------------------------------------------------------------------------
-void eRom::Init()
+void eMemory::Mode48k(bool on)
 {
-#if defined(USE_EMBEDDED_RESOURCES) || defined(USE_EXTERN_RESOURCES)
-	memcpy(memory->Get(ROM_128_0),	sos128_0,	eMemory::PAGE_SIZE);
-	memcpy(memory->Get(ROM_128_1),	sos128_1,	eMemory::PAGE_SIZE);
-	memcpy(memory->Get(ROM_48),		sos48,		eMemory::PAGE_SIZE);
-	memcpy(memory->Get(ROM_SYS),	service,	eMemory::PAGE_SIZE);
-	memcpy(memory->Get(ROM_DOS),	dos513f,	eMemory::PAGE_SIZE);
-#else//USE_EMBEDDED_RESOURCES
-	LoadRom(ROM_128_0,	xIo::ResourcePath("res/rom/sos128_0.rom"));
-	LoadRom(ROM_128_1,	xIo::ResourcePath("res/rom/sos128_1.rom"));
-	LoadRom(ROM_48,		xIo::ResourcePath("res/rom/sos48.rom"));
-	LoadRom(ROM_SYS,	xIo::ResourcePath("res/rom/service.rom"));
-	LoadRom(ROM_DOS,	xIo::ResourcePath("res/rom/dos513f.rom"));
-#endif//USE_EMBEDDED_RESOURCES
+	mode_48k = on;
+	if(on)
+	{
+		SetRomPage(ROM_SOS());
+		SetPage(3, P_RAM0);
+	}
 }
 //=============================================================================
-//	eRom::Reset
+//	eMemory::IoWrite
 //-----------------------------------------------------------------------------
-void eRom::Reset()
+bool eMemory::IoWrite(word port) const
 {
-	SelectPage(mode_48k ? ROM_48 : ROM_SYS);
+	return !(port & 2) && !(port & 0x8000); // zx128 port
 }
 //=============================================================================
-//	eRom::IoWrite
+//	eMemory::IoWrite
 //-----------------------------------------------------------------------------
-bool eRom::IoWrite(word port) const
+void eMemory::IoWrite(word port, byte v, int tact)
 {
-	return !mode_48k && !(port & 2) && !(port & 0x8000); // zx128 port
-}
-//=============================================================================
-//	eRom::IoWrite
-//-----------------------------------------------------------------------------
-void eRom::IoWrite(word port, byte v, int tact)
-{
-	SelectPage((page_selected & ~1) + ((v >> 4) & 1));
-}
-
-//=============================================================================
-//	eRam::Reset
-//-----------------------------------------------------------------------------
-void eRam::Reset()
-{
-	memory->SetPage(1, eMemory::P_RAM5);
-	memory->SetPage(2, eMemory::P_RAM2);
-	memory->SetPage(3, eMemory::P_RAM0);
-}
-//=============================================================================
-//	eRam::IoWrite
-//-----------------------------------------------------------------------------
-bool eRam::IoWrite(word port) const
-{
-	return !mode_48k && !(port & 2) && !(port & 0x8000); // zx128 port
-}
-//=============================================================================
-//	eRam::IoWrite
-//-----------------------------------------------------------------------------
-void eRam::IoWrite(word port, byte v, int tact)
-{
-	int page = eMemory::P_RAM0 + (v & 7);
-	memory->SetPage(3, page);
+	if(mode_48k)
+		return;
+	if(v & 0x20)
+	{
+		Mode48k(true);
+		return;
+	}
+	SetRomPage((rom_page_selected & ~1) + ((v >> 4) & 1));
+	int page = P_RAM0 + (v & 7);
+	SetPage(3, page);
 }

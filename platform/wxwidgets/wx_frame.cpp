@@ -28,6 +28,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include <wx/dnd.h>
 #include <wx/aboutdlg.h>
 
+OPTION_USING(eOptionInt, op_drive);
+
 namespace xPlatform
 {
 
@@ -36,7 +38,9 @@ void DoneSound();
 
 wxWindow* CreateGLCanvas(wxWindow* parent);
 
-static struct eOptionWindowSize : public xOptions::eRootOption<xOptions::eOptionInt>
+OPTION_USING(eOptionBool, op_true_speed);
+
+static struct eOptionWindowSize : public xOptions::eOptionInt
 {
 	eOptionWindowSize() { customizable = false; Set(1); }
 	virtual const char* Name() const { return "window size"; }
@@ -46,12 +50,14 @@ static struct eOptionWindowSize : public xOptions::eRootOption<xOptions::eOption
 		return values;
 	}
 } op_window_size;
+DECLARE_OPTION_ACCESSOR(eOptionInt, op_window_size);
 
-static struct eOptionFullScreen : public xOptions::eRootOption<xOptions::eOptionBool>
+static struct eOptionFullScreen : public xOptions::eOptionBool
 {
 	eOptionFullScreen() { customizable = false; }
 	virtual const char* Name() const { return "full screen"; }
 } op_full_screen;
+DECLARE_OPTION_ACCESSOR(eOptionBool, op_full_screen);
 
 extern const wxEventType evtMouseCapture;
 extern const wxEventType evtSetStatusText;
@@ -97,7 +103,6 @@ private:
 	void OnJoy(wxCommandEvent& event);
 	void OnPauseToggle(wxCommandEvent& event);
 	void OnTrueSpeedToggle(wxCommandEvent& event);
-	void OnMode48kToggle(wxCommandEvent& event);
 	void OnResetToServiceRomToggle(wxCommandEvent& event);
 	void OnAutoPlayImageToggle(wxCommandEvent& event);
 	void OnMouseCapture(wxCommandEvent& event);
@@ -107,7 +112,7 @@ private:
 	void UpdateBetaDiskMenu();
 	void UpdateJoyMenu();
 	void UpdateViewZoomMenu();
-	bool UpdateBoolOption(wxMenuItem* o, const char* name, bool toggle = false) const; // returns option value
+	bool UpdateBoolOption(wxMenuItem* o, xOptions::eOptionBool* op, bool toggle = false) const; // returns option value
 
 	enum
 	{
@@ -115,7 +120,7 @@ private:
 		ID_ViewFillScreen, ID_ViewSmallBorder, ID_ViewNoBorder, ID_ViewFilteringToggle, ID_FullScreenToggle,
 		ID_TapeToggle, ID_TapeFastToggle, ID_AutoPlayImageToggle,
 		ID_JoyCursor, ID_JoyKempston, ID_JoyQAOP, ID_JoySinclair2,
-		ID_PauseToggle, ID_TrueSpeedToggle, ID_Mode48kToggle,
+		ID_PauseToggle, ID_TrueSpeedToggle,
 		ID_BetaDiskDriveA, ID_BetaDiskDriveB, ID_BetaDiskDriveC, ID_BetaDiskDriveD,
 		ID_QuickSave, ID_QuickLoad,
 	};
@@ -138,7 +143,6 @@ private:
 	wxMenuItem* menu_beta_disk_drive[4];
 	wxMenuItem* menu_pause;
 	wxMenuItem* menu_true_speed;
-	wxMenuItem* menu_mode_48k;
 	wxMenuItem* menu_tape_fast;
 	wxMenuItem* menu_reset_to_service_rom;
 	wxMenuItem* menu_auto_play_image;
@@ -180,7 +184,6 @@ BEGIN_EVENT_TABLE(Frame, wxFrame)
 	EVT_MENU(Frame::ID_JoySinclair2,Frame::OnJoy)
 	EVT_MENU(Frame::ID_PauseToggle,	Frame::OnPauseToggle)
 	EVT_MENU(Frame::ID_TrueSpeedToggle,	Frame::OnTrueSpeedToggle)
-	EVT_MENU(Frame::ID_Mode48kToggle,	Frame::OnMode48kToggle)
 	EVT_MENU(Frame::ID_ResetToServiceRomToggle,	Frame::OnResetToServiceRomToggle)
 	EVT_MENU(Frame::ID_AutoPlayImageToggle,	Frame::OnAutoPlayImageToggle)
 	EVT_MENU(Frame::ID_QuickLoad,	Frame::OnQuickLoad)
@@ -236,7 +239,6 @@ Frame::Frame(const wxString& title, const wxPoint& pos, const eCmdLine& cmdline)
 
 	menu_pause = menuDevice->Append(ID_PauseToggle, _("&Pause\tF7"), _(""), wxITEM_CHECK);
 	menu_true_speed = menuDevice->Append(ID_TrueSpeedToggle, _("&True speed\tF8"), _(""), wxITEM_CHECK);
-	menu_mode_48k = menuDevice->Append(ID_Mode48kToggle, _("Mode &48k\tF9"), _(""), wxITEM_CHECK);
 	menu_reset_to_service_rom = menuDevice->Append(ID_ResetToServiceRomToggle, _("Reset to service R&OM"), _(""), wxITEM_CHECK);
 	menuDevice->Append(ID_Reset, _("&Reset\tF12"));
 
@@ -293,7 +295,7 @@ Frame::Frame(const wxString& title, const wxPoint& pos, const eCmdLine& cmdline)
 	gl_canvas->SetFocus();
 
 	UpdateBetaDiskMenu();
-	xOptions::eOptionBool* op_true_speed = xOptions::Find<xOptions::eOptionBool>("true speed");
+	xOptions::eOptionBool* op_true_speed = OPTION_GET(op_true_speed);
 	if(cmdline.true_speed != eCmdLine::V_DEFAULT && op_true_speed)
 	{
 		op_true_speed->Set(cmdline.true_speed == eCmdLine::V_ON);
@@ -301,25 +303,18 @@ Frame::Frame(const wxString& title, const wxPoint& pos, const eCmdLine& cmdline)
 	}
 	if(cmdline.full_screen != eCmdLine::V_DEFAULT)
 		op_full_screen.Set(cmdline.full_screen == eCmdLine::V_ON);
-	xOptions::eOptionBool* op_mode_48k = xOptions::Find<xOptions::eOptionBool>("mode 48k");
-	if(cmdline.mode_48k != eCmdLine::V_DEFAULT && op_mode_48k)
-	{
-		op_mode_48k->Set(cmdline.mode_48k == eCmdLine::V_ON);
-		op_mode_48k->Apply();
-	}
 	if(!cmdline.joystick.empty())
 	{
-		xOptions::eOptionInt* op_joy = xOptions::Find<xOptions::eOptionInt>("joystick");
+		xOptions::eOptionInt* op_joy = OPTION_GET(op_joy);
 		SAFE_CALL(op_joy)->Value(wxConvertWX2MB(cmdline.joystick));
 	}
 	UpdateJoyMenu();
 	menu_true_speed->Check(op_true_speed && *op_true_speed);
-	menu_mode_48k->Check(op_mode_48k && *op_mode_48k);
 
-	UpdateBoolOption(menu_tape_fast, "fast tape");
-	UpdateBoolOption(menu_reset_to_service_rom, "reset to service rom");
-	UpdateBoolOption(menu_auto_play_image, "auto play image");
-	UpdateBoolOption(menu_view.filtering, "filtering");
+	UpdateBoolOption(menu_tape_fast, OPTION_GET(op_tape_fast));
+	UpdateBoolOption(menu_reset_to_service_rom, OPTION_GET(op_reset_to_service_rom));
+	UpdateBoolOption(menu_auto_play_image, OPTION_GET(op_auto_play_image));
+	UpdateBoolOption(menu_view.filtering, OPTION_GET(op_filtering));
 	UpdateViewZoomMenu();
 
 	if(!cmdline.file_to_open.empty())
@@ -345,9 +340,8 @@ void Frame::ShowFullScreen(bool on)
 //=============================================================================
 //	Frame::UpdateBoolOption
 //-----------------------------------------------------------------------------
-bool Frame::UpdateBoolOption(wxMenuItem* o, const char* name, bool toggle) const
+bool Frame::UpdateBoolOption(wxMenuItem* o, xOptions::eOptionBool* op, bool toggle) const
 {
-	xOptions::eOptionBool* op = xOptions::Find<xOptions::eOptionBool>(name);
 	if(op && toggle)
 		op->Change();
 	bool on = op && *op;
@@ -500,8 +494,7 @@ void Frame::OnResize(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::OnViewMode(wxCommandEvent& event)
 {
-	using namespace xOptions;
-	eOptionInt* op_zoom = Find<eOptionInt>("zoom");
+	xOptions::eOptionInt* op_zoom = OPTION_GET(op_zoom);
 	switch(event.GetId())
 	{
 	case ID_ViewFillScreen:		op_zoom->Set(0);		break;
@@ -528,8 +521,7 @@ void Frame::OnTapeToggle(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::OnTapeFastToggle(wxCommandEvent& event)
 {
-	using namespace xOptions;
-	eOptionBool* op_tape_fast = Find<eOptionBool>("fast tape");
+	xOptions::eOptionBool* op_tape_fast = OPTION_GET(op_tape_fast);
 	SAFE_CALL(op_tape_fast)->Change();
 	bool tape_fast = op_tape_fast && *op_tape_fast;
 	menu_tape_fast->Check(tape_fast);
@@ -540,12 +532,13 @@ void Frame::OnTapeFastToggle(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::OnBetaDiskDrive(wxCommandEvent& event)
 {
+	xOptions::eOptionInt* op_drive = OPTION_GET(op_drive);
 	switch(event.GetId())
 	{
-	case ID_BetaDiskDriveA: OpDrive(D_A); SetStatusText(_("Drive A selected"));	break;
-	case ID_BetaDiskDriveB: OpDrive(D_B); SetStatusText(_("Drive B selected"));	break;
-	case ID_BetaDiskDriveC: OpDrive(D_C); SetStatusText(_("Drive C selected"));	break;
-	case ID_BetaDiskDriveD: OpDrive(D_D); SetStatusText(_("Drive D selected"));	break;
+	case ID_BetaDiskDriveA: op_drive->Set(0); SetStatusText(_("Drive A selected"));	break;
+	case ID_BetaDiskDriveB: op_drive->Set(1); SetStatusText(_("Drive B selected"));	break;
+	case ID_BetaDiskDriveC: op_drive->Set(2); SetStatusText(_("Drive C selected"));	break;
+	case ID_BetaDiskDriveD: op_drive->Set(3); SetStatusText(_("Drive D selected"));	break;
 	}
 	UpdateBetaDiskMenu();
 }
@@ -554,12 +547,13 @@ void Frame::OnBetaDiskDrive(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::OnJoy(wxCommandEvent& event)
 {
+	xOptions::eOptionInt* op_joy = OPTION_GET(op_joy);
 	switch(event.GetId())
 	{
-	case ID_JoyKempston:	OpJoystick(J_KEMPSTON);	SetStatusText(_("Kempston selected"));	break;
-	case ID_JoyCursor:		OpJoystick(J_CURSOR);	SetStatusText(_("Cursor selected"));	break;
-	case ID_JoyQAOP:		OpJoystick(J_QAOP);		SetStatusText(_("QAOP selected"));		break;
-	case ID_JoySinclair2:	OpJoystick(J_SINCLAIR2);SetStatusText(_("Sinclair 2 selected"));break;
+	case ID_JoyKempston:	op_joy->Set(J_KEMPSTON);	SetStatusText(_("Kempston selected"));	break;
+	case ID_JoyCursor:		op_joy->Set(J_CURSOR);		SetStatusText(_("Cursor selected"));	break;
+	case ID_JoyQAOP:		op_joy->Set(J_QAOP);		SetStatusText(_("QAOP selected"));		break;
+	case ID_JoySinclair2:	op_joy->Set(J_SINCLAIR2);	SetStatusText(_("Sinclair 2 selected"));break;
 	}
 	UpdateJoyMenu();
 }
@@ -584,7 +578,7 @@ void Frame::OnPauseToggle(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::OnViewFilteringToggle(wxCommandEvent& event)
 {
-	if(UpdateBoolOption(menu_view.filtering, "filtering", true))
+	if(UpdateBoolOption(menu_view.filtering, OPTION_GET(op_filtering), true))
 		SetStatusText(_("Filtering on"));
 	else
 		SetStatusText(_("Filtering off"));
@@ -594,27 +588,17 @@ void Frame::OnViewFilteringToggle(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::OnTrueSpeedToggle(wxCommandEvent& event)
 {
-	if(UpdateBoolOption(menu_true_speed, "true speed", true))
+	if(UpdateBoolOption(menu_true_speed, OPTION_GET(op_true_speed), true))
 		SetStatusText(_("True speed (50Hz mode) on"));
 	else
 		SetStatusText(_("True speed off"));
-}
-//=============================================================================
-//	Frame::OnMode48kToggle
-//-----------------------------------------------------------------------------
-void Frame::OnMode48kToggle(wxCommandEvent& event)
-{
-	if(UpdateBoolOption(menu_mode_48k, "mode 48k", true))
-		SetStatusText(_("Mode 48k on"));
-	else
-		SetStatusText(_("Mode 48k off"));
 }
 //=============================================================================
 //	Frame::OnResetToServiceRomToggle
 //-----------------------------------------------------------------------------
 void Frame::OnResetToServiceRomToggle(wxCommandEvent& event)
 {
-	if(UpdateBoolOption(menu_reset_to_service_rom, "reset to service rom", true))
+	if(UpdateBoolOption(menu_reset_to_service_rom, OPTION_GET(op_reset_to_service_rom), true))
 		SetStatusText(_("Reset to service ROM"));
 	else
 		SetStatusText(_("Reset to usual ROM"));
@@ -624,7 +608,7 @@ void Frame::OnResetToServiceRomToggle(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::OnAutoPlayImageToggle(wxCommandEvent& event)
 {
-	if(UpdateBoolOption(menu_auto_play_image, "auto play image", true))
+	if(UpdateBoolOption(menu_auto_play_image, OPTION_GET(op_auto_play_image), true))
 		SetStatusText(_("Auto launch on"));
 	else
 		SetStatusText(_("Auto launch off"));
@@ -655,8 +639,7 @@ void Frame::OnSetStatusText(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::OnQuickLoad(wxCommandEvent& event)
 {
-	using namespace xOptions;
-	eOptionBool* o = Find<eOptionBool>("load state");
+	xOptions::eOptionBool* o = OPTION_GET(op_load_state);
 	if(o)
 	{
 		o->Change();
@@ -670,8 +653,7 @@ void Frame::OnQuickLoad(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::OnQuickSave(wxCommandEvent& event)
 {
-	using namespace xOptions;
-	eOptionBool* o = Find<eOptionBool>("save state");
+	xOptions::eOptionBool* o = OPTION_GET(op_save_state);
 	if(o)
 	{
 		o->Change();
@@ -683,30 +665,29 @@ void Frame::OnQuickSave(wxCommandEvent& event)
 //-----------------------------------------------------------------------------
 void Frame::UpdateBetaDiskMenu()
 {
-	eDrive drive = OpDrive();
-	menu_beta_disk_drive[0]->Check(drive == D_A);
-	menu_beta_disk_drive[1]->Check(drive == D_B);
-	menu_beta_disk_drive[2]->Check(drive == D_C);
-	menu_beta_disk_drive[3]->Check(drive == D_D);
+	xOptions::eOptionInt* op_drive = OPTION_GET(op_drive);
+	menu_beta_disk_drive[0]->Check(*op_drive == 0);
+	menu_beta_disk_drive[1]->Check(*op_drive == 1);
+	menu_beta_disk_drive[2]->Check(*op_drive == 2);
+	menu_beta_disk_drive[3]->Check(*op_drive == 3);
 }
 //=============================================================================
 //	Frame::UpdateJoyMenu
 //-----------------------------------------------------------------------------
 void Frame::UpdateJoyMenu()
 {
-	eJoystick joy = OpJoystick();
-	menu_joy.kempston->Check(joy == J_KEMPSTON);
-	menu_joy.cursor->Check(joy == J_CURSOR);
-	menu_joy.qaop->Check(joy == J_QAOP);
-	menu_joy.sinclair2->Check(joy == J_SINCLAIR2);
+	xOptions::eOptionInt* op_joy = OPTION_GET(op_joy);
+	menu_joy.kempston->Check(*op_joy == J_KEMPSTON);
+	menu_joy.cursor->Check(*op_joy == J_CURSOR);
+	menu_joy.qaop->Check(*op_joy == J_QAOP);
+	menu_joy.sinclair2->Check(*op_joy == J_SINCLAIR2);
 }
 //=============================================================================
 //	Frame::UpdateViewZoomMenu
 //-----------------------------------------------------------------------------
 void Frame::UpdateViewZoomMenu()
 {
-	using namespace xOptions;
-	eOptionInt* op_zoom = Find<eOptionInt>("zoom");
+	xOptions::eOptionInt* op_zoom  = OPTION_GET(op_zoom );
 	menu_view.fill_screen->Check(*op_zoom == 0);
 	menu_view.small_border->Check(*op_zoom == 1);
 	menu_view.no_border->Check(*op_zoom == 2);

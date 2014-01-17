@@ -80,7 +80,7 @@ void ePalette::OnOption()
 	}
 }
 
-static class ePalettes : public xOptions::eRootOption<xOptions::eOptionInt>
+static class ePalettes : public xOptions::eOptionInt
 {
 public:
 	ePalettes() : size(0)
@@ -105,7 +105,6 @@ public:
 		eOptionInt::Change(size, next);
 	}
 	virtual const char* Name() const { return "palette"; }
-	virtual int Order() const { return 60; }
 protected:
 	virtual const char** Values() const { return (const char**)values; }
 	virtual void OnOption()
@@ -134,5 +133,6 @@ protected:
 	int size;
 	const char* values[COUNT + 1];
 } op_palettes;
+DECLARE_OPTION_ACCESSOR(eOptionInt, op_palettes);
 
 const dword* Palette() { return op_palettes.Palette(); }

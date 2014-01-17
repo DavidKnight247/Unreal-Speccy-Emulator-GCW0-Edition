@@ -19,11 +19,14 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../std.h"
 #include "device.h"
 
+DECLARE_OPTION_ACCESSOR_NULL(eOptionBool, op_devices);
+
 //=============================================================================
 //	eDevices::eDevices
 //-----------------------------------------------------------------------------
 eDevices::eDevices()
 {
+	OPTION_GET(op_devices) = this;
 	storeable = false;
 	memset(items, 0, sizeof(items));
 	Set(true);

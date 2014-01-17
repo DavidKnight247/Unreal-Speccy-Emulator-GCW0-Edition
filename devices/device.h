@@ -53,7 +53,7 @@ protected:
 	virtual void _OnOption() {}
 };
 
-enum eDeviceId { D_ROM, D_RAM, D_ULA, D_KEYBOARD, D_KEMPSTON_JOY, D_KEMPSTON_MOUSE, D_BEEPER, D_AY, D_WD1793, D_TAPE, D_COUNT };
+enum eDeviceId { D_MEMORY, D_ULA, D_KEYBOARD, D_KEMPSTON_JOY, D_KEMPSTON_MOUSE, D_BEEPER, D_AY, D_WD1793, D_TAPE, D_COUNT };
 
 //*****************************************************************************
 //	eDevices
@@ -89,7 +89,7 @@ public:
 	void FrameStart(dword tacts);
 	void FrameUpdate();
 	void FrameEnd(dword tacts);
-	virtual const char* Name() const { return "device"; }
+	virtual const char* Name() const { return "hardware"; }
 protected:
 	virtual const char** Values() const { static const char* vs[] = { "[ ]", "[x]", NULL }; return vs; }
 	virtual void OnOption();

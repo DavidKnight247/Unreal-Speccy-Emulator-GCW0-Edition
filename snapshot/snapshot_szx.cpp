@@ -154,10 +154,8 @@ struct eZ80AccessorSZX : public xZ80::eZ80
 	bool SetState(xIo::eStreamMemory& is);
 	void SetupDevices(bool model48k)
 	{
-		devices->Get<eRom>()->Mode48k(model48k);
-		devices->Get<eRam>()->Mode48k(model48k);
-		devices->Get<eUla>()->Mode48k(model48k);
 		devices->Init();
+		devices->Get<eMemory>()->Mode48k(model48k);
 	}
 };
 
@@ -233,9 +231,9 @@ bool eZ80AccessorSZX::SetState(xIo::eStreamMemory& is)
 				devices->IoWrite(0xfe, (regs.chFe&0x18) | regs.chBorder, t);
 				devices->IoWrite(0x7ffd, model48k ? 0x30 : regs.ch7ffd, t);
 				if(model48k)
-					devices->Get<eRom>()->SelectPage(eRom::ROM_48);
+					devices->Get<eMemory>()->SetRomPage(eMemory::P_ROM_48);
 				else
-					devices->Get<eRom>()->SelectPage((regs.ch7ffd & 0x10) ? eRom::ROM_128_0 : eRom::ROM_128_1);
+					devices->Get<eMemory>()->SetRomPage((regs.ch7ffd & 0x10) ? eMemory::P_ROM_128_0 : eMemory::P_ROM_128_1);
 			}
 			break;
 		case FOURCC('R', 'A', 'M', 'P'):

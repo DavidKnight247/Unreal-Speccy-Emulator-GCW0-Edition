@@ -27,10 +27,27 @@ const int MAX_PHYS_CYL = 86;	// don't seek over it
 
 const bool wd93_nodelay = false;
 
+static struct eOptionDrive : public xOptions::eOptionInt
+{
+	enum eState { S_FIRST, S_A = S_FIRST, S_B, S_C, S_D, S_LAST };
+	eOptionDrive() { storeable = false; Set(S_A); }
+	virtual const char* Name() const { return "drive"; }
+	virtual const char** Values() const
+	{
+		static const char* values[] = { "A", "B", "C", "D", NULL };
+		return values;
+	}
+	virtual void Change(bool next = true)
+	{
+		eOptionInt::Change(S_LAST, next);
+	}
+} op_drive;
+DECLARE_OPTION_ACCESSOR(eOptionInt, op_drive);
+
 //=============================================================================
 //	eWD1793::eWD1793
 //-----------------------------------------------------------------------------
-eWD1793::eWD1793(eSpeccy* _speccy, eRom* _rom) : speccy(_speccy), rom(_rom)
+eWD1793::eWD1793(eSpeccy* _speccy, eMemory* _memory) : speccy(_speccy), memory(_memory)
 	, next(0), tshift(0), state(S_IDLE), state_next(S_IDLE), cmd(0), data(0)
 	, track(0), side(0), sector(0), direction(0), rqs(R_NONE), status(0)
 	, system(0), end_waiting_am(0), found_sec(NULL), rwptr(0), rwlen(0), crc(0), start_crc(-1)
@@ -46,8 +63,9 @@ void eWD1793::Init()
 //=============================================================================
 //	eWD1793::Open
 //-----------------------------------------------------------------------------
-bool eWD1793::Open(const char* type, int drive, const void* data, size_t data_size)
+bool eWD1793::Open(const char* type, const void* data, size_t data_size)
 {
+	int drive = *OPTION_GET(op_drive);
 	assert(drive >= 0 && drive < FDD_COUNT);
 	int current_fdd;
 	for(current_fdd = FDD_COUNT; --current_fdd >= 0;)
@@ -67,8 +85,9 @@ bool eWD1793::Open(const char* type, int drive, const void* data, size_t data_si
 //=============================================================================
 //	eWD1793::BootExist
 //-----------------------------------------------------------------------------
-bool eWD1793::BootExist(int drive)
+bool eWD1793::BootExist()
 {
+	int drive = *OPTION_GET(op_drive);
 	assert(drive >= 0 && drive < FDD_COUNT);
 	return fdds[drive].BootExist();
 }
@@ -645,7 +664,7 @@ bool eWD1793::IoWrite(word port) const
 //-----------------------------------------------------------------------------
 void eWD1793::IoRead(word port, byte* v, int tact)
 {
-	if(!rom->DosSelected())
+	if(!memory->DosSelected())
 		return;
 	Process(tact);
 	*v = 0xff;
@@ -670,7 +689,7 @@ void eWD1793::IoRead(word port, byte* v, int tact)
 //-----------------------------------------------------------------------------
 void eWD1793::IoWrite(word port, byte v, int tact)
 {
-	if(!rom->DosSelected())
+	if(!memory->DosSelected())
 		return;
 	Process(tact);
 	byte p = (byte)port;

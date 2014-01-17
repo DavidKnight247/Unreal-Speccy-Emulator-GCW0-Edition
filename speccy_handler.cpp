@@ -124,19 +124,6 @@ static struct eSpeccyHandler : public eHandler, public eRZX::eHandler, public xZ
 	eDeviceSound* sound_dev[SOUND_DEV_COUNT];
 } sh;
 
-static struct eOption48K : public xOptions::eRootOption<xOptions::eOptionBool>
-{
-	virtual const char* Name() const { return "mode 48k"; }
-	virtual int Order() const { return 65; }
-protected:
-	virtual void OnOption()
-	{
-		if(changed)
-			sh.OnAction(A_RESET);
-	}
-} op_48k;
-DECLARE_OPTION(eOptionBool, op_48k);
-
 void eSpeccyHandler::OnInit()
 {
 	assert(!speccy);
@@ -149,8 +136,6 @@ void eSpeccyHandler::OnInit()
 	sound_dev[1] = speccy->Device<eAY>();
 	sound_dev[2] = speccy->Device<eTape>();
 	xOptions::Init();
-	if(op_48k)
-		speccy->Reset();
 	OnAction(A_RESET);
 }
 void eSpeccyHandler::OnDone()
@@ -315,26 +300,6 @@ bool eSpeccyHandler::OnSaveFile(const char* name)
 	return t->Store(name);
 }
 
-static struct eOptionTapeFast : public xOptions::eOptionBool
-{
-	eOptionTapeFast() { Set(true); }
-	virtual const char* Name() const { return "fast"; }
-} op_tape_fast;
-DECLARE_OPTION(eOptionBool, op_tape_fast);
-
-static struct eOptionAutoPlayImage : public xOptions::eOptionBool
-{
-	eOptionAutoPlayImage() { Set(true); }
-	virtual const char* Name() const { return "auto play"; }
-} op_auto_play_image;
-DECLARE_OPTION(eOptionBool, op_auto_play_image);
-
-static struct eOptionResetToServiceRom : public xOptions::eRootOption<xOptions::eOptionBool>
-{
-	virtual const char* Name() const { return "reset to service rom"; }
-	virtual int Order() const { return 79; }
-} op_reset_to_service_rom;
-
 eActionResult eSpeccyHandler::OnAction(eAction action)
 {
 	switch(action)
@@ -343,10 +308,7 @@ eActionResult eSpeccyHandler::OnAction(eAction action)
 		if(!inside_replay_update) // can be called from replay->Update()
 			SAFE_DELETE(replay);
 		SAFE_DELETE(macro);
-		speccy->Mode48k(op_48k);
 		speccy->Reset();
-		if(!speccy->Mode48k())
-			speccy->Device<eRom>()->SelectPage(op_reset_to_service_rom ? eRom::ROM_SYS : eRom::ROM_128_1);
 		if(inside_replay_update)
 			speccy->CPU()->HandlerIo(this);
 		return AR_OK;
@@ -357,7 +319,7 @@ eActionResult eSpeccyHandler::OnAction(eAction action)
 				return AR_TAPE_NOT_INSERTED;
 			if(!tape->Started())
 			{
-				if(op_tape_fast)
+				if(OPTION_GET(op_tape_fast))
 					speccy->CPU()->HandlerStep(fast_tape_emul);
 				else
 					speccy->CPU()->HandlerStep(NULL);
@@ -448,15 +410,15 @@ static struct eFileTypeTRD : public eFileType
 	virtual bool Open(const void* data, size_t data_size)
 	{
 		eWD1793* wd = sh.speccy->Device<eWD1793>();
-		bool ok = wd->Open(Type(), *OPTION_GET(op_drive), data, data_size);
-		if(ok && op_auto_play_image)
+		bool ok = wd->Open(Type(), data, data_size);
+		if(ok && OPTION_GET(op_auto_play_image))
 		{
 			sh.OnAction(A_RESET);
-			if(wd->BootExist(*OPTION_GET(op_drive)))
-				sh.speccy->Device<eRom>()->SelectPage(eRom::ROM_DOS);
-			else if(!sh.speccy->Mode48k())
+			if(wd->BootExist())
+				sh.speccy->Device<eMemory>()->SetRomPage(eMemory::P_ROM_DOS);
+			else
 			{
-				sh.speccy->Device<eRom>()->SelectPage(eRom::ROM_SYS);
+				sh.speccy->Device<eMemory>()->SetRomPage(eMemory::P_ROM_SYS);
 				sh.PlayMacro(new eMacroDiskRun);
 			}
 		}
@@ -512,10 +474,11 @@ static struct eFileTypeTAP : public eFileType
 	virtual bool Open(const void* data, size_t data_size)
 	{
 		bool ok = sh.speccy->Device<eTape>()->Open(Type(), data, data_size);
-		if(ok && op_auto_play_image)
+		if(ok && OPTION_GET(op_auto_play_image))
 		{
 			sh.OnAction(A_RESET);
-			sh.speccy->Devices().Get<eRom>()->SelectPage(sh.speccy->Devices().Get<eRom>()->ROM_SOS());
+			eMemory* m = sh.speccy->Devices().Get<eMemory>();
+			m->SetRomPage(m->ROM_SOS());
 			sh.PlayMacro(new eMacroTapeLoad);
 		}
 		return ok;

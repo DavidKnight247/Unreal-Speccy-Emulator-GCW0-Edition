@@ -88,6 +88,7 @@ public:
 	static eDeviceId Id() { return D_AY; }
 	virtual dword IoNeed() const { return ION_WRITE|ION_READ; }
 	virtual const char* Name() const { return "ay"; }
+	void OnOptionChanged();
 protected:
 	enum CHIP_TYPE { CHIP_AY, CHIP_YM, CHIP_MAX };
 	static const char* GetChipName(CHIP_TYPE i);
@@ -99,7 +100,6 @@ protected:
 	void _Reset(dword timestamp = 0); // call with default parameter, when context outside start_frame/end_frame block
 	void Flush(dword chiptick);
 	void ApplyRegs(dword timestamp = 0);
-	virtual void _OnOption();
 protected:
 	dword t, ta, tb, tc, tn, te, env;
 	int denv;

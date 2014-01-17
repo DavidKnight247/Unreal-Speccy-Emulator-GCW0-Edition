@@ -132,7 +132,7 @@ void GLCanvas::Paint(wxDC& dc)
 //-----------------------------------------------------------------------------
 void GLCanvas::OnIdle(wxIdleEvent& event)
 {
-	if(OpQuit())
+	if(*OPTION_GET(op_quit))
 	{
 		GetParent()->Close(true);
 		return;
@@ -157,7 +157,7 @@ void GLCanvas::OnIdle(wxIdleEvent& event)
 		Paint(dc);
 	}
 	if(!Handler()->FullSpeed())
-		wxMilliSleep(3);
+		wxMilliSleep(5);
 	event.RequestMore();
 }
 //=============================================================================

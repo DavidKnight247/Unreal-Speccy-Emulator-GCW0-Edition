@@ -28,11 +28,21 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 //*****************************************************************************
 //	eMemory
 //-----------------------------------------------------------------------------
-class eMemory
+class eMemory : public eDevice
 {
 public:
 	eMemory();
 	virtual ~eMemory();
+	virtual void Init();
+	virtual void Reset();
+	void ReadRom(word addr)
+	{
+		byte pc_h = addr >> 8;
+		if(rom_page_selected == ROM_SOS() && (pc_h == 0x3d))
+			SetRomPage(P_ROM_DOS);
+		else if(DosSelected() && (pc_h & 0xc0)) // pc > 0x3fff closes tr-dos
+			SetRomPage(ROM_SOS());
+	}
 	byte Read(word addr) const
 	{
 		byte* a = bank_read[(addr >> 14) & 3] + (addr & (PAGE_SIZE - 1));
@@ -47,89 +57,34 @@ public:
 		*a = v;
 	}
 	byte* Get(int page) { return memory + page * PAGE_SIZE; }
-
+	bool DosSelected() const { return rom_page_selected == P_ROM_DOS; }
 	enum ePage
 	{
-		P_ROM0 = 0, P_ROM1, P_ROM2, P_ROM3, P_ROM4,
+		P_ROM_128_1 = 0, P_ROM_128_0, P_ROM_SYS, P_ROM_DOS, P_ROM_48,
 		P_RAM0, P_RAM1, P_RAM2, P_RAM3,
 		P_RAM4, P_RAM5, P_RAM6, P_RAM7,
 		P_AMOUNT
 	};
-	void SetPage(int idx, int page);
+	void SetRomPage(int page) { rom_page_selected = page; SetPage(0, rom_page_selected); }
 	int	Page(int idx);
+	int ROM_SOS() const { return mode_48k ? P_ROM_48 : P_ROM_128_0; }
+	bool Mode48k() const { return mode_48k; }
+	void Mode48k(bool on);
 
+	virtual bool IoWrite(word port) const;
+	virtual void IoWrite(word port, byte v, int tact);
+	static eDeviceId Id() { return D_MEMORY; }
+	virtual dword IoNeed() const { return ION_WRITE; }
+	virtual const char* Name() const { return "memory"; }
 	enum { BANKS_AMOUNT = 4, PAGE_SIZE = 0x4000, SIZE = P_AMOUNT * PAGE_SIZE };
+protected:
+	void LoadRom(int page, const char* rom);
+	void SetPage(int idx, int page);
 protected:
 	byte* bank_read[BANKS_AMOUNT];
 	byte* bank_write[BANKS_AMOUNT];
 	byte* memory;
-};
-
-//*****************************************************************************
-//	eRom
-//-----------------------------------------------------------------------------
-class eRom : public eDevice
-{
-public:
-	eRom(eMemory* m) : memory(m), page_selected(0), mode_48k(false) {}
-	virtual void Init();
-	virtual void Reset();
-	virtual bool IoWrite(word port) const;
-	virtual void IoWrite(word port, byte v, int tact);
-	void Read(word addr)
-	{
-		byte pc_h = addr >> 8;
-		if(page_selected == ROM_SOS() && (pc_h == 0x3d))
-		{
-			SelectPage(ROM_DOS);
-		}
-		else if(DosSelected() && (pc_h & 0xc0)) // pc > 0x3fff closes tr-dos
-		{
-			SelectPage(ROM_SOS());
-		}
-	}
-	void SelectPage(int page) { page_selected = page; memory->SetPage(0, page_selected); }
-	bool DosSelected() const { return page_selected == ROM_DOS; }
-	void Mode48k(bool on) { mode_48k = on; }
-	int ROM_SOS() const { return mode_48k ? ROM_48 : ROM_128_0; }
-
-	static eDeviceId Id() { return D_ROM; }
-	virtual dword IoNeed() const { return ION_WRITE; }
-	enum ePage
-	{
-		ROM_128_1	= eMemory::P_ROM0,
-		ROM_128_0	= eMemory::P_ROM1,
-		ROM_SYS		= eMemory::P_ROM2,
-		ROM_DOS		= eMemory::P_ROM3,
-		ROM_48		= eMemory::P_ROM4,
-	};
-	virtual const char* Name() const { return "rom"; }
-protected:
-	void LoadRom(int page, const char* rom);
-
-protected:
-	eMemory* memory;
-	int page_selected;
-	bool mode_48k;
-};
-
-//*****************************************************************************
-//	eRam
-//-----------------------------------------------------------------------------
-class eRam : public eDevice
-{
-public:
-	eRam(eMemory* m) : memory(m), mode_48k(false) {}
-	virtual void Reset();
-	virtual bool IoWrite(word port) const;
-	virtual void IoWrite(word port, byte v, int tact);
-	void Mode48k(bool on) { mode_48k = on; }
-	bool Mode48k() const { return mode_48k; }
-	static eDeviceId Id() { return D_RAM; }
-	virtual dword IoNeed() const { return ION_WRITE; }
-	virtual const char* Name() const { return "ram"; }
-protected:
-	eMemory* memory;
+	int rom_page_selected;
 	bool mode_48k;
 };
 
