@@ -58,7 +58,7 @@ enum eDeviceId { D_MEMORY, D_ULA, D_KEYBOARD, D_KEMPSTON_JOY, D_KEMPSTON_MOUSE, 
 //*****************************************************************************
 //	eDevices
 //-----------------------------------------------------------------------------
-class eDevices : public xOptions::eOptionBool
+class eDevices : public xOptions::eOptionB
 {
 public:
 	eDevices();
@@ -91,7 +91,6 @@ public:
 	void FrameEnd(dword tacts);
 	virtual const char* Name() const { return "hardware"; }
 protected:
-	virtual const char** Values() const { static const char* vs[] = { "[ ]", "[x]", NULL }; return vs; }
 	virtual void OnOption();
 	void _Add(eDeviceId id, eDevice* d);
 	eDevice* _Get(eDeviceId id) const { return items[id]; }

@@ -28,8 +28,6 @@
             </palette>
             <zoom>fill screen</zoom>
             <filtering>off</filtering>
-            <window_size>200%</window_size>
-            <full_screen>off</full_screen>
         </view>
         <device>
             <tape>

@@ -42,7 +42,7 @@ OPTION_USING(eOptionBool, op_true_speed);
 
 static struct eOptionWindowSize : public xOptions::eOptionInt
 {
-	eOptionWindowSize() { customizable = false; Set(1); }
+	eOptionWindowSize() { Set(1); }
 	virtual const char* Name() const { return "window size"; }
 	virtual const char** Values() const
 	{
@@ -54,10 +54,26 @@ DECLARE_OPTION_ACCESSOR(eOptionInt, op_window_size);
 
 static struct eOptionFullScreen : public xOptions::eOptionBool
 {
-	eOptionFullScreen() { customizable = false; }
 	virtual const char* Name() const { return "full screen"; }
 } op_full_screen;
 DECLARE_OPTION_ACCESSOR(eOptionBool, op_full_screen);
+
+static struct eOptionAbout : public xOptions::eOptionBool
+{
+	virtual const char* Name() const { return "about"; }
+	virtual const char** Values() const { return NULL; }
+} op_about;
+
+static struct eOptionHelp : public xOptions::eRootOption<xOptions::eOptionB>
+{
+	virtual const char* Name() const { return "help"; }
+	virtual int Order() const { return 10; }
+protected:
+	virtual void OnOption()
+	{
+		Option(op_about);
+	}
+} op_help;
 
 extern const wxEventType evtMouseCapture;
 extern const wxEventType evtSetStatusText;
@@ -86,108 +102,41 @@ public:
 	void ShowFullScreen(bool on);
 
 private:
-	void OnReset(wxCommandEvent& event);
-	void OnQuit(wxCommandEvent& event)	{ Close(true); };
-	void OnAbout(wxCommandEvent& event);
-	void OnOpenFile(wxCommandEvent& event);
-	void OnSaveFile(wxCommandEvent& event);
+	void CreateOption(int& id, xOptions::eOptionB* o, wxMenu* m);
+	void OnChange(wxCommandEvent& event);
+	void OnQuit()	{ Close(true); };
+	void OnAbout();
+	void OnOpenFile();
+	void OnSaveFile();
 	void SetFullScreen(bool on);
 	void OnExitFullScreen(wxCommandEvent& event);
-	void OnFullScreenToggle(wxCommandEvent& event);
-	void OnResize(wxCommandEvent& event);
-	void OnViewMode(wxCommandEvent& event);
-	void OnViewFilteringToggle(wxCommandEvent& event);
-	void OnTapeToggle(wxCommandEvent& event);
-	void OnTapeFastToggle(wxCommandEvent& event);
-	void OnBetaDiskDrive(wxCommandEvent& event);
-	void OnJoy(wxCommandEvent& event);
-	void OnPauseToggle(wxCommandEvent& event);
-	void OnTrueSpeedToggle(wxCommandEvent& event);
-	void OnResetToServiceRomToggle(wxCommandEvent& event);
-	void OnAutoPlayImageToggle(wxCommandEvent& event);
+	void OnFullScreenToggle();
+	void OnResize();
 	void OnMouseCapture(wxCommandEvent& event);
 	void OnSetStatusText(wxCommandEvent& event);
-	void OnQuickLoad(wxCommandEvent& event);
-	void OnQuickSave(wxCommandEvent& event);
-	void UpdateBetaDiskMenu();
-	void UpdateJoyMenu();
-	void UpdateViewZoomMenu();
-	bool UpdateBoolOption(wxMenuItem* o, xOptions::eOptionBool* op, bool toggle = false) const; // returns option value
 
-	enum
-	{
-		ID_Reset = 1, ID_ResetToServiceRomToggle, ID_Size200, ID_Size300,
-		ID_ViewFillScreen, ID_ViewSmallBorder, ID_ViewNoBorder, ID_ViewFilteringToggle, ID_FullScreenToggle,
-		ID_TapeToggle, ID_TapeFastToggle, ID_AutoPlayImageToggle,
-		ID_JoyCursor, ID_JoyKempston, ID_JoyQAOP, ID_JoySinclair2,
-		ID_PauseToggle, ID_TrueSpeedToggle,
-		ID_BetaDiskDriveA, ID_BetaDiskDriveB, ID_BetaDiskDriveC, ID_BetaDiskDriveD,
-		ID_QuickSave, ID_QuickLoad,
-	};
-	struct eJoyMenuItems
-	{
-		wxMenuItem* kempston;
-		wxMenuItem* cursor;
-		wxMenuItem* qaop;
-		wxMenuItem* sinclair2;
-	};
-	struct eViewMenuItems
-	{
-		wxMenuItem* fill_screen;
-		wxMenuItem* small_border;
-		wxMenuItem* no_border;
-		wxMenuItem* filtering;
-	};
-	eJoyMenuItems menu_joy;
-	eViewMenuItems menu_view;
-	wxMenuItem* menu_beta_disk_drive[4];
-	wxMenuItem* menu_pause;
-	wxMenuItem* menu_true_speed;
-	wxMenuItem* menu_tape_fast;
-	wxMenuItem* menu_reset_to_service_rom;
-	wxMenuItem* menu_auto_play_image;
-	wxMenuItem* menu_quick_save;
+	enum { ID_OnChange };
 
 private:
 	DECLARE_EVENT_TABLE()
 
 	wxWindow*	gl_canvas;
 	const wxSize org_size;
+	enum { MENU_ITEMS_COUNT = 256 };
+	typedef void (Frame::*eHandler)();
+	struct eMenuItem
+	{
+		xOptions::eOptionB* option;
+		int value;
+		eHandler handler;
+	};
+	eMenuItem menu_items[MENU_ITEMS_COUNT];
 };
 
 //=============================================================================
 //	EVENT_TABLE
 //-----------------------------------------------------------------------------
 BEGIN_EVENT_TABLE(Frame, wxFrame)
-	EVT_MENU(wxID_EXIT,				Frame::OnQuit)
-	EVT_MENU(wxID_ABOUT,			Frame::OnAbout)
-	EVT_MENU(wxID_OPEN,				Frame::OnOpenFile)
-	EVT_MENU(wxID_SAVE,				Frame::OnSaveFile)
-	EVT_MENU(Frame::ID_Reset,		Frame::OnReset)
-	EVT_MENU(wxID_ZOOM_100,			Frame::OnResize)
-	EVT_MENU(Frame::ID_Size200,		Frame::OnResize)
-	EVT_MENU(Frame::ID_Size300,		Frame::OnResize)
-	EVT_MENU(Frame::ID_ViewFillScreen, Frame::OnViewMode)
-	EVT_MENU(Frame::ID_ViewSmallBorder, Frame::OnViewMode)
-	EVT_MENU(Frame::ID_ViewNoBorder, Frame::OnViewMode)
-	EVT_MENU(Frame::ID_ViewFilteringToggle, Frame::OnViewFilteringToggle)
-	EVT_MENU(Frame::ID_FullScreenToggle, Frame::OnFullScreenToggle)
-	EVT_MENU(Frame::ID_TapeToggle,	Frame::OnTapeToggle)
-	EVT_MENU(Frame::ID_TapeFastToggle,Frame::OnTapeFastToggle)
-	EVT_MENU(Frame::ID_BetaDiskDriveA, Frame::OnBetaDiskDrive)
-	EVT_MENU(Frame::ID_BetaDiskDriveB, Frame::OnBetaDiskDrive)
-	EVT_MENU(Frame::ID_BetaDiskDriveC, Frame::OnBetaDiskDrive)
-	EVT_MENU(Frame::ID_BetaDiskDriveD, Frame::OnBetaDiskDrive)
-	EVT_MENU(Frame::ID_JoyKempston,	Frame::OnJoy)
-	EVT_MENU(Frame::ID_JoyCursor,	Frame::OnJoy)
-	EVT_MENU(Frame::ID_JoyQAOP,		Frame::OnJoy)
-	EVT_MENU(Frame::ID_JoySinclair2,Frame::OnJoy)
-	EVT_MENU(Frame::ID_PauseToggle,	Frame::OnPauseToggle)
-	EVT_MENU(Frame::ID_TrueSpeedToggle,	Frame::OnTrueSpeedToggle)
-	EVT_MENU(Frame::ID_ResetToServiceRomToggle,	Frame::OnResetToServiceRomToggle)
-	EVT_MENU(Frame::ID_AutoPlayImageToggle,	Frame::OnAutoPlayImageToggle)
-	EVT_MENU(Frame::ID_QuickLoad,	Frame::OnQuickLoad)
-	EVT_MENU(Frame::ID_QuickSave,	Frame::OnQuickSave)
 	EVT_COMMAND(wxID_ANY, evtMouseCapture, Frame::OnMouseCapture)
 	EVT_COMMAND(wxID_ANY, evtSetStatusText, Frame::OnSetStatusText)
 	EVT_COMMAND(wxID_ANY, evtExitFullScreen, Frame::OnExitFullScreen)
@@ -201,79 +150,59 @@ Frame::Frame(const wxString& title, const wxPoint& pos, const eCmdLine& cmdline)
 	: wxFrame((wxFrame*)NULL, -1, title, pos)
 	, org_size(320, 240)
 {
+	memset(menu_items, 0, sizeof(menu_items));
 #ifdef _WINDOWS
 	SetIcon(wxICON(unreal_speccy_portable));
 #endif//_WINDOWS
 #ifdef _LINUX
 	SetIcon(wxIcon(wxT("unreal_speccy_portable.xpm")));
 #endif//_LINUX
-	wxMenu* menuFile = new wxMenu;
-	menuFile->Append(wxID_OPEN, _("&Open...\tF3"));
-	menuFile->Append(wxID_SAVE, _("&Save...\tF2"));
+	wxMenuBar* mb = new wxMenuBar;
+	using namespace xOptions;
+	int id = 0;
+	for(eRootOptionB* o = eRootOptionB::First(); o; o = o->Next())
+	{
+		wxMenu* m = new wxMenu;
+		for(xOptions::eOptionB* so = o->OptionB()->SubOptions(); so; so = so->Next())
+		{
+			CreateOption(id, so, m);
+		}
+		mb->Append(m, _(o->OptionB()->Name()).Capitalize());
+	}
+	Connect(ID_OnChange, ID_OnChange + id, wxEVT_COMMAND_MENU_SELECTED, wxCommandEventHandler(Frame::OnChange));
 
-	menuFile->AppendSeparator();
-	menuFile->Append(ID_QuickLoad, _("Quick &Load\tF4"));
-	menu_quick_save = menuFile->Append(ID_QuickSave, _("&Quick Save\tF6"));
-	menu_quick_save->Enable(false);
+	struct eItem
+	{
+		xOptions::eOptionB* option;
+		eHandler handler;
+	};
+	eItem items[] =
+	{
+		{ OPTION_GET(op_open_file)	, &Frame::OnOpenFile },
+		{ &op_window_size			, &Frame::OnResize },
+		{ &op_full_screen			, &Frame::OnFullScreenToggle },
+		{ &op_about					, &Frame::OnAbout }
+	};
+	int count = sizeof(items) / sizeof(eItem);
+	for(int i = 0; i < id; ++i)
+	{
+		eMenuItem& mi = menu_items[i];
+		for(int j = 0; j < count; ++j)
+		{
+			if(mi.option == items[j].option)
+			{
+				mi.handler = items[j].handler;
+			}
+		}
+	}
 
 #ifdef _MAC
-	menuFile->Append(wxID_ABOUT, _("About ") + title);
+//	menuFile->Append(wxID_ABOUT, _("About ") + title);
 #else//_MAC
 	SetDropTarget(new DropFilesTarget);
-	menuFile->AppendSeparator();
-#endif//_MAC
-	menu_auto_play_image = menuFile->Append(ID_AutoPlayImageToggle, _("&Auto launch programs"), _(""), wxITEM_CHECK);
-	menuFile->AppendSeparator();
-	menuFile->Append(wxID_EXIT, _("E&xit"));
-
-	wxMenu* menuDevice = new wxMenu;
-	menuDevice->Append(ID_TapeToggle, _("&Start/Stop tape\tF5"));
-	menu_tape_fast = menuDevice->Append(ID_TapeFastToggle, _("Tape &fast"), _(""), wxITEM_CHECK);
-
-	wxMenu* menuBetaDisk = new wxMenu;
-	menu_beta_disk_drive[0] = menuBetaDisk->Append(ID_BetaDiskDriveA, _("&A"), _(""), wxITEM_CHECK);
-	menu_beta_disk_drive[1] = menuBetaDisk->Append(ID_BetaDiskDriveB, _("&B"), _(""), wxITEM_CHECK);
-	menu_beta_disk_drive[2] = menuBetaDisk->Append(ID_BetaDiskDriveC, _("&C"), _(""), wxITEM_CHECK);
-	menu_beta_disk_drive[3] = menuBetaDisk->Append(ID_BetaDiskDriveD, _("&D"), _(""), wxITEM_CHECK);
-	menuDevice->Append(-1, _("Beta disk &drive"), menuBetaDisk);
-
-	menu_pause = menuDevice->Append(ID_PauseToggle, _("&Pause\tF7"), _(""), wxITEM_CHECK);
-	menu_true_speed = menuDevice->Append(ID_TrueSpeedToggle, _("&True speed\tF8"), _(""), wxITEM_CHECK);
-	menu_reset_to_service_rom = menuDevice->Append(ID_ResetToServiceRomToggle, _("Reset to service R&OM"), _(""), wxITEM_CHECK);
-	menuDevice->Append(ID_Reset, _("&Reset\tF12"));
-
-	wxMenu* menuJoy = new wxMenu;
-	menu_joy.cursor = menuJoy->Append(ID_JoyCursor, _("&Cursor"), _(""), wxITEM_CHECK);
-	menu_joy.kempston = menuJoy->Append(ID_JoyKempston, _("&Kempston"), _(""), wxITEM_CHECK);
-	menu_joy.qaop = menuJoy->Append(ID_JoyQAOP, _("&QAOP"), _(""), wxITEM_CHECK);
-	menu_joy.sinclair2 = menuJoy->Append(ID_JoySinclair2, _("&Sinclair 2"), _(""), wxITEM_CHECK);
-	menuDevice->Append(-1, _("&Joystick"), menuJoy);
-
-	wxMenu* menuWindow = new wxMenu;
-	menuWindow->Append(wxID_ZOOM_100, _("Size &100%\tCtrl+1"));
-	menuWindow->Append(ID_Size200, _("Size &200%\tCtrl+2"));
-	menuWindow->Append(ID_Size300, _("Size &300%\tCtrl+3"));
-
-	wxMenu* menuView = new wxMenu;
-	menu_view.fill_screen = menuView->Append(ID_ViewFillScreen, _("Fill screen\tCtrl+Shift+1"), _(""), wxITEM_CHECK);
-	menu_view.small_border = menuView->Append(ID_ViewSmallBorder, _("Small border\tCtrl+Shift+2"), _(""), wxITEM_CHECK);
-	menu_view.no_border = menuView->Append(ID_ViewNoBorder, _("No border\tCtrl+Shift+3"), _(""), wxITEM_CHECK);
-	menu_view.filtering = menuView->Append(ID_ViewFilteringToggle, _("Filtering\tCtrl+Shift+F"), _(""), wxITEM_CHECK);
-	menuView->Append(ID_FullScreenToggle, _("&Full screen\tCtrl+F"));
-
-	wxMenuBar* menuBar = new wxMenuBar;
-	menuBar->Append(menuFile, _("File"));
-	menuBar->Append(menuView, _("View"));
-	menuBar->Append(menuDevice, _("Device"));
-	menuBar->Append(menuWindow, _("Window"));
-
-#ifndef _MAC
-	wxMenu* menuHelp = new wxMenu;
-	menuHelp->Append(wxID_ABOUT, _("&About ") + title);
-	menuBar->Append(menuHelp, _("Help"));
 #endif//_MAC
 
-	SetMenuBar(menuBar);
+	SetMenuBar(mb);
 
 	CreateStatusBar();
 	SetStatusText(_("Ready..."));
@@ -294,31 +223,64 @@ Frame::Frame(const wxString& title, const wxPoint& pos, const eCmdLine& cmdline)
 	gl_canvas = CreateGLCanvas(this);
 	gl_canvas->SetFocus();
 
-	UpdateBetaDiskMenu();
-	xOptions::eOptionBool* op_true_speed = OPTION_GET(op_true_speed);
-	if(cmdline.true_speed != eCmdLine::V_DEFAULT && op_true_speed)
-	{
-		op_true_speed->Set(cmdline.true_speed == eCmdLine::V_ON);
-		op_true_speed->Apply();
-	}
-	if(cmdline.full_screen != eCmdLine::V_DEFAULT)
-		op_full_screen.Set(cmdline.full_screen == eCmdLine::V_ON);
-	if(!cmdline.joystick.empty())
-	{
-		xOptions::eOptionInt* op_joy = OPTION_GET(op_joy);
-		SAFE_CALL(op_joy)->Value(wxConvertWX2MB(cmdline.joystick));
-	}
-	UpdateJoyMenu();
-	menu_true_speed->Check(op_true_speed && *op_true_speed);
-
-	UpdateBoolOption(menu_tape_fast, OPTION_GET(op_tape_fast));
-	UpdateBoolOption(menu_reset_to_service_rom, OPTION_GET(op_reset_to_service_rom));
-	UpdateBoolOption(menu_auto_play_image, OPTION_GET(op_auto_play_image));
-	UpdateBoolOption(menu_view.filtering, OPTION_GET(op_filtering));
-	UpdateViewZoomMenu();
-
 	if(!cmdline.file_to_open.empty())
 		Handler()->OnOpenFile(wxConvertWX2MB(cmdline.file_to_open));
+}
+void Frame::CreateOption(int& id, xOptions::eOptionB* o, wxMenu* m)
+{
+	using namespace xOptions;
+	const char* value = NULL;
+	if(o->Customizable())
+	{
+		value = o->Value();
+	}
+	else if(!o->SubOptions())
+		return;
+	wxString name = _(o->Name()).Capitalize();
+	wxMenu* sm = NULL;
+	eOptionBool* ob = dynamic_cast<eOptionBool*>(o);
+	if(!o->SubOptions() && (!o->Values() || ob))
+	{
+		m->Append(ID_OnChange + id, name, "", o->Values() ? wxITEM_CHECK : wxITEM_NORMAL);
+		if(o->Values())
+			m->Check(ID_OnChange + id, *ob);
+		menu_items[id++].option = o;
+	}
+	else
+	{
+		sm = new wxMenu;
+		if(o->Values())
+		{
+			int begin_id = id;
+			for(const char** v = o->Values(); v && *v; ++v)
+			{
+				sm->Append(ID_OnChange + id, _(*v).Capitalize(), "", wxITEM_RADIO);
+				menu_items[id].option = o;
+				menu_items[id++].value = id - begin_id;
+			}
+			sm->Check(ID_OnChange + begin_id + *static_cast<eOptionInt*>(o), true);
+		}
+		if(o->Values() && o->SubOptions())
+			sm->Append(ID_OnChange + id++, "", "", wxITEM_SEPARATOR);
+		m->Append(ID_OnChange + id++, name, sm);
+	}
+	for(xOptions::eOptionB* so = o->SubOptions(); so; so = so->Next())
+	{
+		CreateOption(id, so, sm);
+	}
+}
+void Frame::OnChange(wxCommandEvent& event)
+{
+	int id = event.GetId();
+	xOptions::eOptionB* o = menu_items[id].option;
+	xOptions::eOptionInt* oi = dynamic_cast<xOptions::eOptionInt*>(o);
+	if(oi)
+		oi->Set(menu_items[id].value);
+	else
+		o->Change();
+	xOptions::Apply();
+	if(menu_items[id].handler)
+		(this->*menu_items[id].handler)();
 }
 //=============================================================================
 //	Frame::ShowFullScreen
@@ -338,34 +300,11 @@ void Frame::ShowFullScreen(bool on)
 	wxFrame::ShowFullScreen(on, wxFULLSCREEN_ALL);
 }
 //=============================================================================
-//	Frame::UpdateBoolOption
-//-----------------------------------------------------------------------------
-bool Frame::UpdateBoolOption(wxMenuItem* o, xOptions::eOptionBool* op, bool toggle) const
-{
-	if(op && toggle)
-		op->Change();
-	bool on = op && *op;
-	o->Check(on);
-	return on;
-}
-//=============================================================================
-//	Frame::OnReset
-//-----------------------------------------------------------------------------
-void Frame::OnReset(wxCommandEvent& event)
-{
-	if(Handler()->OnAction(A_RESET) == AR_OK)
-	{
-		SetStatusText(_("Reset OK"));
-		menu_quick_save->Enable(false);
-	}
-	else
-		SetStatusText(_("Reset FAILED"));
-}
-//=============================================================================
 //	Frame::OnAbout
 //-----------------------------------------------------------------------------
-void Frame::OnAbout(wxCommandEvent& event)
+void Frame::OnAbout()
 {
+	op_about.Set(false);
 	wxAboutDialogInfo info;
 	info.SetName(GetTitle());
 	info.SetDescription(_("Portable ZX Spectrum emulator."));
@@ -393,8 +332,9 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.\n"
 //=============================================================================
 //	Frame::OnOpenFile
 //-----------------------------------------------------------------------------
-void Frame::OnOpenFile(wxCommandEvent& event)
+void Frame::OnOpenFile()
 {
+	OPTION_GET(op_open_file)->Set(false);
 	wxFileDialog fd(this, wxFileSelectorPromptStr, wxConvertMB2WX(OpLastFolder()));
 	fd.SetWildcard(
 			L"Supported files|*.sna;*.z80;*.szx;*.rzx;*.trd;*.scl;*.fdi;*.tap;*.csw;*.tzx;*.zip;"
@@ -411,7 +351,7 @@ void Frame::OnOpenFile(wxCommandEvent& event)
 		if(Handler()->OnOpenFile(wxConvertWX2MB(fd.GetPath().c_str())))
 		{
 			SetStatusText(_("File open OK"));
-			menu_quick_save->Enable(true);
+//			menu_quick_save->Enable(true);
 		}
 		else
 			SetStatusText(_("File open FAILED"));
@@ -420,7 +360,7 @@ void Frame::OnOpenFile(wxCommandEvent& event)
 //=============================================================================
 //	Frame::OnSaveFile
 //-----------------------------------------------------------------------------
-void Frame::OnSaveFile(wxCommandEvent& event)
+void Frame::OnSaveFile()
 {
 	Handler()->VideoPaused(true);
 	wxFileDialog fd(this, wxFileSelectorPromptStr, wxConvertMB2WX(OpLastFolder()), wxEmptyString, wxFileSelectorDefaultWildcardStr, wxFD_SAVE|wxFD_OVERWRITE_PROMPT);
@@ -465,21 +405,15 @@ void Frame::OnExitFullScreen(wxCommandEvent& event)
 //=============================================================================
 //	Frame::OnToggleFullScreen
 //-----------------------------------------------------------------------------
-void Frame::OnFullScreenToggle(wxCommandEvent& event)
+void Frame::OnFullScreenToggle()
 {
-	SetFullScreen(!op_full_screen);
+	SetFullScreen(op_full_screen);
 }
 //=============================================================================
 //	Frame::OnResize
 //-----------------------------------------------------------------------------
-void Frame::OnResize(wxCommandEvent& event)
+void Frame::OnResize()
 {
-	switch(event.GetId())
-	{
-	case wxID_ZOOM_100:	op_window_size.Set(0);	break;
-	case ID_Size200:	op_window_size.Set(1);	break;
-	case ID_Size300:	op_window_size.Set(2);	break;
-	}
 	if(IsFullScreen())
 	{
 		ShowFullScreen(false);
@@ -488,130 +422,6 @@ void Frame::OnResize(wxCommandEvent& event)
 	if(IsMaximized())
 		Maximize(false);
 	SetClientSize(org_size*(op_window_size + 1));
-}
-//=============================================================================
-//	Frame::OnViewMode
-//-----------------------------------------------------------------------------
-void Frame::OnViewMode(wxCommandEvent& event)
-{
-	xOptions::eOptionInt* op_zoom = OPTION_GET(op_zoom);
-	switch(event.GetId())
-	{
-	case ID_ViewFillScreen:		op_zoom->Set(0);		break;
-	case ID_ViewSmallBorder:	op_zoom->Set(1);		break;
-	case ID_ViewNoBorder:		op_zoom->Set(2);		break;
-	}
-	UpdateViewZoomMenu();
-}
-//=============================================================================
-//	Frame::OnTapeToggle
-//-----------------------------------------------------------------------------
-void Frame::OnTapeToggle(wxCommandEvent& event)
-{
-	switch(Handler()->OnAction(A_TAPE_TOGGLE))
-	{
-	case AR_TAPE_STARTED:		SetStatusText(_("Tape started"));	break;
-	case AR_TAPE_STOPPED:		SetStatusText(_("Tape stopped"));	break;
-	case AR_TAPE_NOT_INSERTED:	SetStatusText(_("Tape not inserted"));	break;
-	default: break;
-	}
-}
-//=============================================================================
-//	Frame::OnTapeFastToggle
-//-----------------------------------------------------------------------------
-void Frame::OnTapeFastToggle(wxCommandEvent& event)
-{
-	xOptions::eOptionBool* op_tape_fast = OPTION_GET(op_tape_fast);
-	SAFE_CALL(op_tape_fast)->Change();
-	bool tape_fast = op_tape_fast && *op_tape_fast;
-	menu_tape_fast->Check(tape_fast);
-	SetStatusText(tape_fast ? _("Fast tape on") : _("Fast tape off"));
-}
-//=============================================================================
-//	Frame::OnBetaDiskDrive
-//-----------------------------------------------------------------------------
-void Frame::OnBetaDiskDrive(wxCommandEvent& event)
-{
-	xOptions::eOptionInt* op_drive = OPTION_GET(op_drive);
-	switch(event.GetId())
-	{
-	case ID_BetaDiskDriveA: op_drive->Set(0); SetStatusText(_("Drive A selected"));	break;
-	case ID_BetaDiskDriveB: op_drive->Set(1); SetStatusText(_("Drive B selected"));	break;
-	case ID_BetaDiskDriveC: op_drive->Set(2); SetStatusText(_("Drive C selected"));	break;
-	case ID_BetaDiskDriveD: op_drive->Set(3); SetStatusText(_("Drive D selected"));	break;
-	}
-	UpdateBetaDiskMenu();
-}
-//=============================================================================
-//	Frame::OnJoy
-//-----------------------------------------------------------------------------
-void Frame::OnJoy(wxCommandEvent& event)
-{
-	xOptions::eOptionInt* op_joy = OPTION_GET(op_joy);
-	switch(event.GetId())
-	{
-	case ID_JoyKempston:	op_joy->Set(J_KEMPSTON);	SetStatusText(_("Kempston selected"));	break;
-	case ID_JoyCursor:		op_joy->Set(J_CURSOR);		SetStatusText(_("Cursor selected"));	break;
-	case ID_JoyQAOP:		op_joy->Set(J_QAOP);		SetStatusText(_("QAOP selected"));		break;
-	case ID_JoySinclair2:	op_joy->Set(J_SINCLAIR2);	SetStatusText(_("Sinclair 2 selected"));break;
-	}
-	UpdateJoyMenu();
-}
-//=============================================================================
-//	Frame::OnPauseToggle
-//-----------------------------------------------------------------------------
-void Frame::OnPauseToggle(wxCommandEvent& event)
-{
-	if(menu_pause->IsChecked())
-	{
-		Handler()->VideoPaused(true);
-		SetStatusText(_("Paused..."));
-	}
-	else
-	{
-		Handler()->VideoPaused(false);
-		SetStatusText(_("Ready..."));
-	}
-}
-//=============================================================================
-//	Frame::OnViewFilteringToggle
-//-----------------------------------------------------------------------------
-void Frame::OnViewFilteringToggle(wxCommandEvent& event)
-{
-	if(UpdateBoolOption(menu_view.filtering, OPTION_GET(op_filtering), true))
-		SetStatusText(_("Filtering on"));
-	else
-		SetStatusText(_("Filtering off"));
-}
-//=============================================================================
-//	Frame::OnTrueSpeedToggle
-//-----------------------------------------------------------------------------
-void Frame::OnTrueSpeedToggle(wxCommandEvent& event)
-{
-	if(UpdateBoolOption(menu_true_speed, OPTION_GET(op_true_speed), true))
-		SetStatusText(_("True speed (50Hz mode) on"));
-	else
-		SetStatusText(_("True speed off"));
-}
-//=============================================================================
-//	Frame::OnResetToServiceRomToggle
-//-----------------------------------------------------------------------------
-void Frame::OnResetToServiceRomToggle(wxCommandEvent& event)
-{
-	if(UpdateBoolOption(menu_reset_to_service_rom, OPTION_GET(op_reset_to_service_rom), true))
-		SetStatusText(_("Reset to service ROM"));
-	else
-		SetStatusText(_("Reset to usual ROM"));
-}
-//=============================================================================
-//	Frame::OnResetToServiceRomToggle
-//-----------------------------------------------------------------------------
-void Frame::OnAutoPlayImageToggle(wxCommandEvent& event)
-{
-	if(UpdateBoolOption(menu_auto_play_image, OPTION_GET(op_auto_play_image), true))
-		SetStatusText(_("Auto launch on"));
-	else
-		SetStatusText(_("Auto launch off"));
 }
 //=============================================================================
 //	Frame::OnMouseCapture
@@ -633,64 +443,6 @@ void Frame::OnSetStatusText(wxCommandEvent& event)
 		SetStatusText(_("RZX error - invalid data"));
 	else if(event.GetString() == L"rzx_unsupported")
 		SetStatusText(_("RZX error - unsupported format"));
-}
-//=============================================================================
-//	Frame::OnQuickLoad
-//-----------------------------------------------------------------------------
-void Frame::OnQuickLoad(wxCommandEvent& event)
-{
-	xOptions::eOptionBool* o = OPTION_GET(op_load_state);
-	if(o)
-	{
-		o->Change();
-		SetStatusText(*o ? _("Quick load OK") : _("Quick load FAILED"));
-		if(*o)
-			menu_quick_save->Enable(true);
-	}
-}
-//=============================================================================
-//	Frame::OnQuickSave
-//-----------------------------------------------------------------------------
-void Frame::OnQuickSave(wxCommandEvent& event)
-{
-	xOptions::eOptionBool* o = OPTION_GET(op_save_state);
-	if(o)
-	{
-		o->Change();
-		SetStatusText(*o ? _("Quick save OK") : _("Quick save FAILED"));
-	}
-}
-//=============================================================================
-//	Frame::UpdateBetaDiskMenu
-//-----------------------------------------------------------------------------
-void Frame::UpdateBetaDiskMenu()
-{
-	xOptions::eOptionInt* op_drive = OPTION_GET(op_drive);
-	menu_beta_disk_drive[0]->Check(*op_drive == 0);
-	menu_beta_disk_drive[1]->Check(*op_drive == 1);
-	menu_beta_disk_drive[2]->Check(*op_drive == 2);
-	menu_beta_disk_drive[3]->Check(*op_drive == 3);
-}
-//=============================================================================
-//	Frame::UpdateJoyMenu
-//-----------------------------------------------------------------------------
-void Frame::UpdateJoyMenu()
-{
-	xOptions::eOptionInt* op_joy = OPTION_GET(op_joy);
-	menu_joy.kempston->Check(*op_joy == J_KEMPSTON);
-	menu_joy.cursor->Check(*op_joy == J_CURSOR);
-	menu_joy.qaop->Check(*op_joy == J_QAOP);
-	menu_joy.sinclair2->Check(*op_joy == J_SINCLAIR2);
-}
-//=============================================================================
-//	Frame::UpdateViewZoomMenu
-//-----------------------------------------------------------------------------
-void Frame::UpdateViewZoomMenu()
-{
-	xOptions::eOptionInt* op_zoom  = OPTION_GET(op_zoom );
-	menu_view.fill_screen->Check(*op_zoom == 0);
-	menu_view.small_border->Check(*op_zoom == 1);
-	menu_view.no_border->Check(*op_zoom == 2);
 }
 
 //=============================================================================

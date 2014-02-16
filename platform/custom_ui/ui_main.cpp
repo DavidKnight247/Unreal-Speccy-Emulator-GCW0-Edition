@@ -27,14 +27,6 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
 #ifdef USE_UI
 
-static struct eOptionOpenFile : public xOptions::eOptionBool
-{
-	eOptionOpenFile() { storeable = false; }
-	virtual const char* Name() const { return "open"; }
-	virtual const char** Values() const { return NULL; }
-} op_open_file;
-DECLARE_OPTION_ACCESSOR(eOptionBool, op_open_file);
-
 namespace xUi
 {
 
@@ -59,9 +51,10 @@ void eMainDialog::Update()
 		clear = false;
 		Clear();
 	}
-	if(op_open_file)
+	xOptions::eOptionBool* op = xPlatform::OPTION_GET(op_open_file);
+	if(op && *op)
 	{
-		op_open_file.Set(false);
+		op->Set(false);
 		Clear();
 		eDialog* d = new eFileOpenDialog(xPlatform::OpLastFolder());
 		d->Id(D_FILE_OPEN);

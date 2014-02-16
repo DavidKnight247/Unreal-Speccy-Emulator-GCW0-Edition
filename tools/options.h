@@ -74,8 +74,8 @@ public:
 	virtual bool Apply(tinyxml2::XMLElement* owner = NULL);
 	eOptionB* Find(const char* name) const;
 	void Store(tinyxml2::XMLElement* owner, tinyxml2::XMLDocument* doc);
-protected:
 	virtual const char** Values() const { return NULL; }
+protected:
 	void Changing();
 	bool Option(eOptionB& o);
 	bool Option(eOptionB* o) { return o ? Option(*o) : false; }

@@ -19,7 +19,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "../std.h"
 #include "device.h"
 
-DECLARE_OPTION_ACCESSOR_NULL(eOptionBool, op_devices);
+DECLARE_OPTION_ACCESSOR_NULL(eOptionB, op_devices);
 
 //=============================================================================
 //	eDevices::eDevices
@@ -29,7 +29,6 @@ eDevices::eDevices()
 	OPTION_GET(op_devices) = this;
 	storeable = false;
 	memset(items, 0, sizeof(items));
-	Set(true);
 }
 //=============================================================================
 //	eDevices::~eDevices
@@ -167,18 +166,11 @@ void eDevices::_Add(eDeviceId id, eDevice* d)
 void eDevices::OnOption()
 {
 	bool items_changed = false;
-	bool on = false;
 	for(int i = 0; i < D_COUNT; ++i)
 	{
-		eOptionBool* o = items[i];
-		if(changed)
-			o->Set(value);
-		if(Option(o))
+		if(Option(items[i]))
 			items_changed = true;
-		if(*o)
-			on = true;
 	}
-	Set(on);
 	if(items_changed)
 		Init();
 }

@@ -36,6 +36,7 @@ OPTION_USING(eOptionString, op_last_file);
 const char* OpLastFolder();
 dword OpJoyKeyFlags();
 
+OPTION_USING(eOptionBool, op_open_file);
 OPTION_USING(eOptionBool, op_load_state);
 OPTION_USING(eOptionBool, op_save_state);
 OPTION_USING(eOptionInt, op_joy);

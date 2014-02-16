@@ -21,14 +21,10 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "ui/ui.h"
 #include "options_common.h"
 
-#ifdef USE_UI
-OPTION_USING(eOptionBool, op_open_file);
-#endif//USE_UI
-
 OPTION_USING(eOptionInt, op_palettes);
 
 OPTION_USING(eOptionInt, op_drive);
-OPTION_USING(eOptionBool, op_devices);
+OPTION_USING(eOptionB, op_devices);
 OPTION_USING(eOptionInt, op_sound_chip);
 OPTION_USING(eOptionInt, op_ay_stereo);
 
@@ -58,6 +54,14 @@ static struct eOptionLastFile : public xOptions::eOptionString
 DECLARE_OPTION_ACCESSOR(eOptionString, op_last_file);
 
 const char* OpLastFolder() { return op_last_file.Folder(); }
+
+static struct eOptionOpenFile : public xOptions::eOptionBool
+{
+	eOptionOpenFile() { storeable = false; }
+	virtual const char* Name() const { return "open"; }
+	virtual const char** Values() const { return NULL; }
+} op_open_file;
+DECLARE_OPTION_ACCESSOR(eOptionBool, op_open_file);
 
 struct eOptionState : public xOptions::eOptionBool
 {
@@ -131,9 +135,7 @@ static struct eOptionFile : public xOptions::eRootOption<xOptions::eOptionB>
 protected:
 	virtual void OnOption()
 	{
-#ifdef USE_UI
-		Option(OPTION_GET(op_open_file));
-#endif//USE_UI
+		Option(op_open_file);
 		Option(op_load_state);
 		Option(op_save_state);
 		Option(OPTION_GET(op_auto_play_image));
