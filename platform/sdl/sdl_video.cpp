@@ -54,7 +54,11 @@ color_cache;
 
 bool InitVideo()
 {
+#ifdef GCWZERO
+    screen = SDL_SetVideoMode(320, 240, 16, SDL_HWSURFACE|SDL_TRIPLEBUF);
+#else
     screen = SDL_SetVideoMode(320, 240, 16, SDL_HWSURFACE);
+#endif
     if(!screen)
         return false;
 	offscreen = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16,

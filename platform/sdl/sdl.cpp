@@ -112,11 +112,16 @@ static void Loop()
 			case SDL_JOYBUTTONDOWN:
 			case SDL_JOYBUTTONUP:
 			case SDL_JOYAXISMOTION:
+#ifndef GCWZERO
 				ProcessJoy(e);
-				break;
+#endif//GCWZERO
 #endif//SDL_USE_JOYSTICK
 			default:
+#ifdef GCWZERO //invoke processjoy to stop A-stick continuing to report movemet when centred
+				ProcessJoy(e);
+#endif//GCWZERO
 				break;
+
 			}
 		}
 		Handler()->OnLoop();
