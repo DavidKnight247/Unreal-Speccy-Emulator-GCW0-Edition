@@ -9,7 +9,9 @@ SRC_PATH := ../..
 OUTPUT_BASE := $(DEVICE)-$(FLAVOR)
 
 PROJECT_NAME := unreal_speccy_portable0.0.59
-SRCFOLDERS = . z80 tools snapshot ui platform platform/custom_ui platform/linux platform/sdl devices devices/fdd devices/input devices/sound 3rdparty/tinyxml2 3rdparty/zlib 3rdparty/minizip 3rdparty/libpng
+SRCFOLDERS = . z80 tools snapshot ui platform platform/custom_ui platform/linux \
+		platform/sdl devices devices/fdd devices/input devices/sound \
+		3rdparty/tinyxml2 3rdparty/zlib 3rdparty/minizip 3rdparty/libpng
 CXXSRCS = $(foreach dir, $(SRCFOLDERS), $(wildcard $(SRC_PATH)/$(dir)/*.cpp))
 CSRCS = $(foreach dir, $(SRCFOLDERS), $(wildcard $(SRC_PATH)/$(dir)/*.c))
 
@@ -42,6 +44,7 @@ CXXFLAGS  = 	$(STD_OPTS) -fno-rtti -fno-threadsafe-statics \
 		-I$(SYSROOT)usr/include -I$(SYSROOT)usr/include/SDL -I$(SYSROOT)usr/include/libxml2 \
 		-I$(SRC_PATH)/tools/zlib/ -I$(SRC_PATH)/tools/tinyxml/ \
 		-I$(SRC_PATH)/tools/libpng/ -I$(SRC_PATH)/3rdparty/tinyxml2/ \
+		-I$(SRC_PATH)/3rdparty/minizip/ \
 		-DSDL_USE_JOYSTICK -D_LINUX -DUSE_SDL -DSDL_KEYS_DINGOO -DGCWZERO
 CFLAGS   := 	$(STD_OPTS)
 LFLAGS   := 	-s \

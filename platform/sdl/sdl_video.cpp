@@ -17,12 +17,18 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 */
 
 #include "../platform.h"
-
+#include "../../speccy.h"
 #ifdef USE_SDL
 #ifndef SDL_UNUSE_VIDEO
 
 #include <SDL.h>
 #include "../../ui/ui.h"
+
+#define SCREEN_WIDTH  320
+#define SCREEN_HEIGHT 240
+#define BPP            16
+#define BORDER_WIDTH   32
+#define BORDER_HEIGHT  24
 
 namespace xPlatform
 {
@@ -55,13 +61,13 @@ color_cache;
 bool InitVideo()
 {
 #ifdef GCWZERO
-    screen = SDL_SetVideoMode(320, 240, 16, SDL_HWSURFACE|SDL_TRIPLEBUF);
+    screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, BPP, SDL_HWSURFACE|SDL_TRIPLEBUF);
 #else
-    screen = SDL_SetVideoMode(320, 240, 16, SDL_HWSURFACE);
+    screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, BPP, SDL_HWSURFACE);
 #endif
     if(!screen)
         return false;
-	offscreen = SDL_CreateRGBSurface(SDL_SWSURFACE, 320, 240, 16,
+	offscreen = SDL_CreateRGBSurface(SDL_SWSURFACE, SCREEN_WIDTH, SCREEN_HEIGHT, BPP,
 						screen->format->Rmask,
 						screen->format->Gmask,
 						screen->format->Bmask,
@@ -81,6 +87,23 @@ void DoneVideo()
 
 void UpdateScreen()
 {
+
+#ifdef GCWZERO
+	static int gcw_fullscreen_current = 0;
+	if (gcw_fullscreen_current != gcw_fullscreen)
+	{
+		gcw_fullscreen_current = gcw_fullscreen;
+		if(gcw_fullscreen)
+		{
+			screen = SDL_SetVideoMode(SCREEN_WIDTH - 2 * BORDER_WIDTH, SCREEN_HEIGHT - 2 * BORDER_HEIGHT, BPP, SDL_HWSURFACE|SDL_TRIPLEBUF);
+		}
+		else
+		{
+			screen = SDL_SetVideoMode(SCREEN_WIDTH, SCREEN_HEIGHT, BPP, SDL_HWSURFACE|SDL_TRIPLEBUF);
+		}
+	}
+#endif
+
 	SDL_LockSurface(offscreen);
 	byte* data = (byte*)Handler()->VideoData();
 	word* scr = (word*)offscreen->pixels;
@@ -88,34 +111,53 @@ void UpdateScreen()
 	byte* data_ui = (byte*)Handler()->VideoDataUI();
 	if(data_ui)
 	{
-		for(int y = 0; y < 240; ++y)
+		for(int y = 0; y < SCREEN_HEIGHT; ++y)
 		{
-			for(int x = 0; x < 320; ++x)
+			for(int x = 0; x < SCREEN_WIDTH; ++x)
 			{
 				xUi::eRGBAColor c_ui = xUi::palette[*data_ui++];
 				xUi::eRGBAColor c = color_cache.items_rgbx[*data++];
 				*scr++ = SDL_MapRGB(screen->format, (c.r >> c_ui.a) + c_ui.r, (c.g >> c_ui.a) + c_ui.g, (c.b >> c_ui.a) + c_ui.b);
 			}
-			scr += offscreen->pitch - 320*2;
+			scr += offscreen->pitch - SCREEN_WIDTH * 2;
 		}
 	}
 	else
 #endif//USE_UI
 	{
-		for(int y = 0; y < 240; ++y)
+		for(int y = 0; y < SCREEN_HEIGHT; ++y)
 		{
-			for(int x = 0; x < 320/4; ++x)
+			for(int x = 0; x < (SCREEN_WIDTH / 4); ++x)
 			{
 				*scr++ = color_cache.items[*data++];
 				*scr++ = color_cache.items[*data++];
 				*scr++ = color_cache.items[*data++];
 				*scr++ = color_cache.items[*data++];
 			}
-			scr += offscreen->pitch - 320*2;
+			scr += offscreen->pitch - SCREEN_WIDTH * 2;
 		}
 	}
+
+
 	SDL_UnlockSurface(offscreen);
+#ifdef GCWZERO
+	if (gcw_fullscreen)
+	{
+		SDL_Rect dst;
+		dst.x = BORDER_WIDTH;
+		dst.y = BORDER_HEIGHT;
+		dst.w = SCREEN_WIDTH - 2 * dst.x;
+		dst.h = SCREEN_HEIGHT - 2 * dst.y;
+		SDL_BlitSurface(offscreen, &dst, screen, NULL);
+	}
+	else
+	{
+		SDL_BlitSurface(offscreen, NULL, screen, NULL);
+	}
+#else
 	SDL_BlitSurface(offscreen, NULL, screen, NULL);
+#endif
+
 	SDL_Flip(screen);
 }
 

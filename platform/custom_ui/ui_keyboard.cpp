@@ -20,6 +20,8 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "ui_keyboard.h"
 #include "../../ui/ui_button.h"
 
+#include "../../speccy.h"
+
 #ifdef USE_UI
 
 namespace xUi
@@ -52,7 +54,15 @@ void eKeyboard::Init()
 {
 	background = COLOR_BACKGROUND;
 	eRect r_dlg(ePoint(169, 70));
-	r_dlg.Move(ePoint(143, 8));
+        if(gcw_fullscreen)
+	{
+		r_dlg.Move(ePoint(143-24, 24));
+	}
+	else
+	{
+		r_dlg.Move(ePoint(143, 8));
+	}
+
 	Bound() = r_dlg;
 	eRect r_item(ePoint(13, FontSize().y + 2));
 	ePoint margin(6, 6);

@@ -37,6 +37,7 @@ along with this program.  If not, see <http://www.gnu.org/licenses/>.
 #include "options_common.h"
 #include "file_type.h"
 #include "snapshot/rzx.h"
+int gcw_fullscreen = 1;
 
 namespace xPlatform
 {
@@ -188,7 +189,7 @@ const char* eSpeccyHandler::RZXErrorDesc(eRZX::eError err) const
 {
 	switch(err)
 	{
-	case eRZX::E_OK:			return "rzx_ok";
+	case eRZX::E_OK:		return "rzx_ok";
 	case eRZX::E_FINISHED:		return "rzx_finished";
 	case eRZX::E_SYNC_LOST:		return "rzx_sync_lost";
 	case eRZX::E_INVALID:		return "rzx_invalid";
@@ -330,9 +331,30 @@ static struct eOption48K : public xOptions::eOptionBool
 
 static struct eOptionResetToServiceRom : public xOptions::eOptionBool
 {
+#ifdef GCWZERO
+	virtual const char* Name() const { return "reset to s-rom"; }
+#else
 	virtual const char* Name() const { return "reset to service rom"; }
+#endif
 	virtual int Order() const { return 79; }
 } op_reset_to_service_rom;
+
+#ifdef GCWZERO
+static struct eOptionFullscreen : public xOptions::eOptionBool
+{
+	virtual const char* Name() const { return "fullscreen"; }
+	virtual void Change(bool next = true)
+	{
+		eOptionBool::Change();
+		Apply();
+	}
+	virtual void Apply()
+	{
+                gcw_fullscreen = !gcw_fullscreen;
+	}
+	virtual int Order() const { return 75; }
+} op_fullscreen;
+#endif
 
 eActionResult eSpeccyHandler::OnAction(eAction action)
 {
